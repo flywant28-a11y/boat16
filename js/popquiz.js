@@ -69,8 +69,10 @@
           if (ok) correct++;
           paint();
           const row = el('div', 'q-actions');
-          row.appendChild(UI.button('btn btn-primary', 'Дальше →', function () { i++; next(); }));
+          const more = UI.button('btn btn-primary', 'Дальше →', function () { i++; next(); });
+          row.appendChild(more);
           node.appendChild(row);
+          UI.nextOnEnter(more);
         }, { label, noLink: true });
       } else {
         card = Practice.unit(it.u, { review: true, label, onResult: function (ok) { if (ok) correct++; paint(); }, onNext: function () { i++; next(); } });

@@ -259,7 +259,11 @@
     return b;
   }
 
-  /* ---------- Браузер: живой фон ---------- */
+  /* ---------- Браузер: живой фон ----------
+     Время сцены идёт в SLOW раз медленнее настоящего: звёзды мерцают
+     с периодом 20–70 с, лунная дорожка меняется раз в 2–3 с, волны еле ползут. */
+  const SLOW = 0.15;
+
   function mountSea(canvas) {
     const ctx = canvas.getContext('2d');
     const still = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -274,13 +278,13 @@
       draw();
     }
     function draw() {
-      const b = scene(canvas.width, canvas.height, { layout: L, time: still ? 0 : (Date.now() - t0) / 1000 });
+      const b = scene(canvas.width, canvas.height, { layout: L, time: still ? 0 : (Date.now() - t0) / 1000 * SLOW });
       img.data.set(b.data);
       ctx.putImageData(img, 0, 0);
     }
     function loop() {
       clearInterval(timer);
-      if (!still && root.document.visibilityState === 'visible') timer = setInterval(draw, 250);
+      if (!still && root.document.visibilityState === 'visible') timer = setInterval(draw, 500);
     }
     let resizeT = 0;
     root.addEventListener('resize', function () { clearTimeout(resizeT); resizeT = setTimeout(size, 120); });

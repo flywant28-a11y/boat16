@@ -7,7 +7,7 @@
    докачивает список целиком (кнопка в settings).
    При смене VERSION старые кеши удаляются.
    ========================================================= */
-const VERSION = 'boat16-v2';
+const VERSION = 'boat16-v3';
 const SHELL = VERSION + '-shell';
 const RUNTIME = 'boat16-runtime';
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -17,7 +17,7 @@ const FILES = [
   'fonts/jbm-latin-400.woff2', 'fonts/jbm-latin-600.woff2', 'fonts/jbm-cyrillic-400.woff2', 'fonts/jbm-cyrillic-600.woff2',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/favicon-64.png',
   'js/art.js', 'js/core.js', 'js/boot.js',
-  'data/social.js', 'data/math-topics.js', 'data/math-bank.js', 'data/videos.js', 'data/review.js', 'data/materials.js',
+  'data/social.js', 'data/math-topics.js', 'data/math-bank.js', 'data/videos.js', 'data/embeds.js', 'data/review.js', 'data/materials.js',
   'vendor/katex/katex.min.css', 'vendor/katex/katex.min.js', 'vendor/katex/contrib/auto-render.min.js',
   'js/progress.js', 'js/bank.js', 'js/text.js', 'js/timer.js', 'js/files.js',
   'js/quiz.js', 'js/practice.js', 'js/popquiz.js',

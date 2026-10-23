@@ -145,6 +145,8 @@
     box.appendChild(el('p', 'muted', esc(note) + ' ' + (variant ? variant.length : 0) + ' вопросов, порядок перемешан.'));
     if (!variant || !variant.length) { box.appendChild(el('p', 'muted', 'Для этой темы теста нет.')); return; }
 
+    // Вопросы по одному: после ответа — разбор и кнопка «Дальше»,
+    // сам тест никуда не перелистывает
     const questions = UI.shuffle(variant);
     let answered = 0, correct = 0;
     const meter = el('div', 'meter', '<span></span>');
@@ -156,16 +158,26 @@
       count.textContent = answered + '/' + questions.length + ' · верно ' + correct;
     }
     paint();
-    const list = el('div', 'q-list');
-    box.appendChild(list);
-    questions.forEach(function (q, i) {
-      list.appendChild(question(topic, q, i + 1, questions.length, function (ok) {
+    const slot = el('div', 'q-list');
+    box.appendChild(slot);
+    function show(i) {
+      slot.innerHTML = '';
+      slot.appendChild(question(topic, questions[i], i + 1, questions.length, function (ok, node) {
         answered++;
         if (ok) correct++;
         paint();
-        if (answered === questions.length) finish();
+        const row = el('div', 'q-actions');
+        const last = answered === questions.length;
+        const more = UI.button('btn btn-primary', last ? 'Итог →' : 'Дальше →', function () {
+          if (last) { slot.innerHTML = ''; finish(); } else show(i + 1);
+          box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        row.appendChild(more);
+        node.appendChild(row);
+        UI.nextOnEnter(more);
       }));
-    });
+    }
+    show(0);
 
     function finish() {
       const percent = Math.round(correct / questions.length * 100);
@@ -220,7 +232,7 @@
         const more = UI.button('btn btn-primary', 'Дальше →', function () { next(); slot.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
         row.appendChild(more);
         node.appendChild(row);
-        more.focus({ preventScroll: true });
+        UI.nextOnEnter(more);
       });
       slot.appendChild(card);
     }

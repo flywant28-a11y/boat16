@@ -46,6 +46,7 @@ data/social.js        54 темы обществознания (шпора, об
 data/math-topics.js   38 тем математики
 data/math-bank.js     банк ФИПИ: 2 965 задач и 80 вариантов №1–5
 data/videos.js        ролики Данира Баева и Равиля Кандинского по темам
+data/embeds.js        какие ролики автор запретил встраивать (открываются на YouTube) — node tools/check-embeds.js
 data/review.js        демоверсии ФИПИ 2026–2027: задания, решения, таймкоды видеоразборов
 data/materials.js     материалы Равиля из Telegram (ссылки; PDF подключаются в приложении)
 math/img/, review/img/ картинки задач и разборов

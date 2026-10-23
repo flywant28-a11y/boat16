@@ -178,7 +178,7 @@
   function nextButton(where, opts) {
     const nb = UI.button('btn btn-primary', 'Дальше →', function () { opts.onNext(); });
     where.appendChild(nb);
-    nb.focus({ preventScroll: true });
+    UI.nextOnEnter(nb);
   }
 
   /* ---------- Одна задача ---------- */

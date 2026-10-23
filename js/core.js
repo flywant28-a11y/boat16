@@ -50,6 +50,21 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  // Кнопка «Дальше» по Enter — только новым нажатием. Фокус на кнопку не ставим:
+  // Enter, которым отправили ответ, иначе сразу «нажимал» её и вопрос пролистывался.
+  function nextOnEnter(btn) {
+    const since = Date.now();
+    function onKey(e) {
+      if (!document.body.contains(btn)) { document.removeEventListener('keydown', onKey); return; }
+      if (e.key !== 'Enter' || e.repeat || Date.now() - since < 500) return;
+      if (/INPUT|TEXTAREA|SELECT|BUTTON/.test(document.activeElement.tagName) && document.activeElement !== btn) return;
+      e.preventDefault();
+      document.removeEventListener('keydown', onKey);
+      btn.click();
+    }
+    document.addEventListener('keydown', onKey);
+  }
+
   // Таймкод ролика: 9:48, 1:06:44
   function clock(sec) {
     sec = Math.max(0, Math.floor(sec));
@@ -94,7 +109,7 @@
     document.body.appendChild(box);
   }
 
-  window.UI = { el, esc, plural, shuffle, button, mmss, clock, toast, lightbox };
+  window.UI = { el, esc, plural, shuffle, button, mmss, clock, toast, lightbox, nextOnEnter };
 
   /* ---------- Store ---------- */
   const PREFIX = 'boat16:';

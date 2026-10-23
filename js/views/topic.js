@@ -146,12 +146,20 @@
   /* =========================================================
      video
      ========================================================= */
+  // Автор запретил показ на других сайтах (data/embeds.js) — такой ролик
+  // открываем на YouTube в браузере, встроенный плеер показал бы только ошибку
+  function embeddable(v) { return !(window.NO_EMBED && NO_EMBED[v.id]); }
+
   function player(box, v) {
     box.innerHTML = '';
-    const poster = UI.button('yt-poster', '<span class="yt-play">▶</span><span class="yt-title">' + esc(v.title) + (v.start ? ' · с ' + UI.clock(v.start) : '') + '</span>');
+    const inline = embeddable(v);
+    const poster = UI.button('yt-poster' + (inline ? '' : ' external'),
+      '<span class="yt-play">' + (inline ? '▶' : '↗') + '</span><span class="yt-title">' + esc(v.title) + (v.start ? ' · с ' + UI.clock(v.start) : '') + '</span>' +
+      (inline ? '' : '<span class="yt-note">автор разрешил смотреть только на YouTube — откроется в браузере</span>'));
     poster.style.backgroundImage = 'url(https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg)';
     poster.addEventListener('click', function () {
       if (!navigator.onLine) { UI.toast('Нужен интернет, чтобы смотреть ролик.'); return; }
+      if (!inline) { window.open(ytLink(v), '_blank', 'noopener'); return; }
       const f = document.createElement('iframe');
       f.src = 'https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&rel=0&modestbranding=1' + (v.start ? '&start=' + v.start : '');
       f.title = v.title;
@@ -167,7 +175,7 @@
   function ytLink(v) { return 'https://www.youtube.com/watch?v=' + v.id + (v.start ? '&t=' + v.start + 's' : ''); }
 
   function videoTab(panel, topic, subj) {
-    const list = VIDEOS[topic.id];
+    const list = VIDEOS[topic.id].filter(function (v) { return !(window.GONE && GONE[v.id]); });
     const author = VIDEO_AUTHORS[subj];
     panel.appendChild(el('div', 'block-head', '<h3>video</h3><a class="muted" href="' + author.channel + '" target="_blank" rel="noopener">' + esc(author.name) + ' ↗</a>'));
     const stage = el('div', 'player');
@@ -182,7 +190,8 @@
     }
     if (list.length > 1) {
       list.forEach(function (v, i) {
-        rows.appendChild(UI.button('pl-row', '<span class="pl-n">' + (i ? 'доп.' : 'основной') + '</span><span class="pl-t">' + esc(v.title) + '</span><span class="pl-d">' + esc(v.dur) + '</span>', function () { pick(i); }));
+        const where = embeddable(v) ? '<span class="pl-w in">▶ здесь</span>' : '<span class="pl-w">youtube ↗</span>';
+        rows.appendChild(UI.button('pl-row', '<span class="pl-n">' + (i ? 'доп.' : 'основной') + '</span><span class="pl-t">' + esc(v.title) + '</span>' + where + '<span class="pl-d">' + esc(v.dur) + '</span>', function () { pick(i); }));
       });
       panel.appendChild(rows);
     }
