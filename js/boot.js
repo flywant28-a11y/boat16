@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
 
   // Порядок важен: данные → ядро → модули → экраны → App
   const SCRIPTS = [
@@ -16,6 +16,7 @@
     'vendor/katex/katex.min.js', 'vendor/katex/contrib/auto-render.min.js',
     'js/progress.js', 'js/bank.js', 'js/text.js', 'js/timer.js', 'js/files.js',
     'js/quiz.js', 'js/practice.js', 'js/popquiz.js',
+    'js/plan.js', 'js/views/calendar.js',
     'js/views/home.js', 'js/views/topic.js', 'js/views/materials.js', 'js/views/settings.js',
     'js/app.js'
   ];

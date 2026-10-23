@@ -2,22 +2,13 @@
    Главный экран из модулей:
      today    — повторы на сегодня и следующая тема каждого предмета;
      stats    — изучено, закреплено, дни подряд, минуты;
-     calendar — календарь тем (логика старого сайта: статусы и повторы;
-                внешний вид временный — обсуждается отдельно);
+     calendar — ближайшие 14 дней: повторы и новые темы по плану (js/views/calendar.js);
      social / math — списки тем по разделам с поиском из верхней панели.
    ========================================================= */
 (function () {
   'use strict';
 
   const el = UI.el, esc = UI.esc;
-
-  const SHORT = {
-    'Человек и общество': 'человек', 'Сфера духовной культуры': 'культура', 'Социальная сфера': 'социум',
-    'Экономика': 'экономика', 'Политика': 'политика', 'Гражданин и государство': 'государство', 'Право': 'право',
-    'Задания 1–5: практические задачи': '№1–5', 'Числа и выражения': 'числа', 'Уравнения, неравенства, текстовые задачи': 'уравнения',
-    'Функции и графики': 'функции', 'Вероятность и прогрессии': 'вероятн.', 'Геометрия: углы и треугольники': 'треуг.',
-    'Геометрия: четырёхугольники и окружность': 'четырёхуг.'
-  };
 
   // Глиф статуса в списках тем
   const GLYPH = { 'new': '·', started: '◦', studied: '✓', today: '↻', overdue: '!', fixed: '★' };
@@ -106,52 +97,6 @@
   }
   function cell(v, label) { return '<div class="stat-cell"><b>' + v + '</b><span>' + label + '</span></div>'; }
 
-  /* ---------- calendar ---------- */
-  function calendar() {
-    const all = Subjects.all();
-    const m = mod('calendar', all.length + ' тем · визуал временный', 'mod-calendar');
-    const tip = el('div', 'cal-tip');
-    Subjects.ORDER.forEach(function (s) {
-      const block = el('div', 'cal-subj');
-      block.appendChild(el('div', 'cal-subj-name', Subjects.get(s).dir));
-      sections(s).forEach(function (sec) {
-        const line = el('div', 'cal-line');
-        line.appendChild(el('span', 'cal-sec', esc(SHORT[sec.name] || sec.name)));
-        const cells = el('span', 'cal-cells');
-        sec.topics.forEach(function (tp) {
-          const c = code(tp.id);
-          const a = el('a', 'cal-cell st-' + c);
-          a.href = '#/t/' + tp.id;
-          a.setAttribute('aria-label', tp.title + ' — ' + Progress.status(tp.id).label);
-          a._tp = tp;
-          cells.appendChild(a);
-        });
-        line.appendChild(cells);
-        block.appendChild(line);
-      });
-      m.body.appendChild(block);
-    });
-    m.body.appendChild(el('div', 'cal-legend',
-      ['new:не начата', 'started:начата', 'studied:изучена', 'today:повтор сегодня', 'overdue:просрочено', 'fixed:закреплена'].map(function (p) {
-        const kv = p.split(':');
-        return '<span><i class="cal-cell st-' + kv[0] + '"></i>' + kv[1] + '</span>';
-      }).join('')));
-    m.box.appendChild(tip);
-
-    function show(a) {
-      const tp = a._tp, st = Progress.status(tp.id);
-      tip.innerHTML = '<b>' + esc(tp.title) + '</b><span>' + esc(st.label) + (st.date ? ' · ' + Progress.human(st.date) : '') + ' · ' + Math.round(Progress.percent(tp.id)) + '%</span>';
-      const b = m.box.getBoundingClientRect(), c = a.getBoundingClientRect();
-      tip.classList.add('on');
-      const w = tip.offsetWidth;
-      tip.style.left = Math.max(8, Math.min(c.left - b.left + c.width / 2 - w / 2, b.width - w - 8)) + 'px';
-      tip.style.top = (c.top - b.top - tip.offsetHeight - 8) + 'px';
-    }
-    m.box.addEventListener('mouseover', function (e) { const a = e.target.closest('.cal-cell[href]'); if (a) show(a); });
-    m.box.addEventListener('mouseout', function (e) { if (e.target.closest('.cal-cell[href]')) tip.classList.remove('on'); });
-    return m.box;
-  }
-
   /* ---------- Списки тем ---------- */
   function topics(subj) {
     const s = Subjects.get(subj);
@@ -194,7 +139,7 @@
     view.classList.add('dash');
     view.appendChild(today());
     view.appendChild(stats());
-    view.appendChild(calendar());
+    view.appendChild(CalendarView.module());
     view.appendChild(topics('social'));
     view.appendChild(topics('math'));
     const input = document.querySelector('.search input');

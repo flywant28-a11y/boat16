@@ -7,7 +7,7 @@
    докачивает список целиком (кнопка в settings).
    При смене VERSION старые кеши удаляются.
    ========================================================= */
-const VERSION = 'boat16-v1';
+const VERSION = 'boat16-v2';
 const SHELL = VERSION + '-shell';
 const RUNTIME = 'boat16-runtime';
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -21,6 +21,7 @@ const FILES = [
   'vendor/katex/katex.min.css', 'vendor/katex/katex.min.js', 'vendor/katex/contrib/auto-render.min.js',
   'js/progress.js', 'js/bank.js', 'js/text.js', 'js/timer.js', 'js/files.js',
   'js/quiz.js', 'js/practice.js', 'js/popquiz.js',
+  'js/plan.js', 'js/views/calendar.js',
   'js/views/home.js', 'js/views/topic.js', 'js/views/materials.js', 'js/views/settings.js', 'js/app.js'
 ];
 

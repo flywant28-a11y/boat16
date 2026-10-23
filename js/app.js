@@ -3,6 +3,7 @@
    Маршруты:
      #/                    — главный экран (модули: today, calendar, темы, stats)
      #/t/<id>[/<вкладка>]  — тема: video · notes · review · practice
+     #/calendar[/ГГГГ-ММ]  — календарь: повторы, план до ОГЭ, сделанное по дням
      #/materials           — материалы Равиля из Telegram
      #/settings            — прогресс, офлайн, о приложении
    ========================================================= */
@@ -43,7 +44,7 @@
     });
 
     const nav = el('nav', 'topnav');
-    nav.innerHTML = '<a href="#/materials">materials</a><a href="#/settings">settings</a>';
+    nav.innerHTML = '<a href="#/calendar">calendar</a><a href="#/materials">materials</a><a href="#/settings">settings</a>';
     bar.appendChild(nav);
     return bar;
   }
@@ -58,6 +59,7 @@
 
   function route() {
     Timer.stop();
+    Plan.refresh();   // прогресс мог измениться — план пересчитается
     const hash = location.hash.replace(/^#\/?/, '');
     const parts = hash.split('/').filter(Boolean).map(decodeURIComponent);
     view.innerHTML = '';
@@ -72,7 +74,8 @@
         return;
       }
     }
-    if (parts[0] === 'materials') { crumbs([{ text: 'materials' }]); MaterialsView.render(view); }
+    if (parts[0] === 'calendar') { crumbs([{ text: 'calendar' }]); CalendarView.render(view, parts[1]); }
+    else if (parts[0] === 'materials') { crumbs([{ text: 'materials' }]); MaterialsView.render(view); }
     else if (parts[0] === 'settings') { crumbs([{ text: 'settings' }]); SettingsView.render(view); }
     else { crumbs([]); HomeView.render(view); }
     window.scrollTo(0, 0);
