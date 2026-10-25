@@ -21,8 +21,8 @@
 
   /* ---------- Предметы ---------- */
   const SUBJECTS = {
-    social: { id: 'social', name: 'Обществознание', dir: 'общество', topics: window.SOCIAL_TOPICS || [], goalMin: 25 },
-    math: { id: 'math', name: 'Математика', dir: 'математика', topics: window.MATH_TOPICS || [], goalMin: 60 }
+    social: { id: 'social', name: 'Social studies', dir: 'social', topics: window.SOCIAL_TOPICS || [], goalMin: 25 },
+    math: { id: 'math', name: 'Math', dir: 'math', topics: window.MATH_TOPICS || [], goalMin: 60 }
   };
   const ORDER = ['social', 'math'];
 
@@ -54,15 +54,15 @@
   function today() { return toKey(new Date()); }
   function addDays(key, days) { const d = fromKey(key); d.setDate(d.getDate() + days); return toKey(d); }
   function diffDays(a, b) { return Math.round((fromKey(b) - fromKey(a)) / 86400000); }
-  const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   function human(key) {
     if (!key) return '';
     const delta = diffDays(today(), key);
-    if (delta === 0) return 'сегодня';
-    if (delta === 1) return 'завтра';
-    if (delta === -1) return 'вчера';
+    if (delta === 0) return 'today';
+    if (delta === 1) return 'tomorrow';
+    if (delta === -1) return 'yesterday';
     const d = fromKey(key);
-    return d.getDate() + ' ' + MONTHS[d.getMonth()];
+    return MONTHS[d.getMonth()] + ' ' + d.getDate();
   }
 
   /* ---------- Хранилище ---------- */
@@ -100,20 +100,20 @@
     const t = peek(id);
     const mock = mockDue(t);
     if (!t || t.stage === 0) {
-      if (mock) return { code: 'today', label: 'по пробнику: изучи тему', date: t.mockReview, mock: true };
+      if (mock) return { code: 'today', label: 'after mock exam: study the topic', date: t.mockReview, mock: true };
       const started = t && (t.theoryRead || t.attempts.length || t.practiceSec > 0);
-      return { code: 'new', label: started ? (t.theoryRead ? 'теория прочитана' : 'начата') : 'не начата', date: null, started: !!started };
+      return { code: 'new', label: started ? (t.theoryRead ? 'notes read' : 'started') : 'not started', date: null, started: !!started };
     }
     if (mock) {
       const late = diffDays(today(), t.mockReview) < 0;
-      return { code: late ? 'overdue' : 'today', label: 'повтор по пробнику', date: t.mockReview, mock: true };
+      return { code: late ? 'overdue' : 'today', label: 'review after mock exam', date: t.mockReview, mock: true };
     }
-    if (t.stage >= 3) return { code: 'fixed', label: 'закреплена', date: null };
+    if (t.stage >= 3) return { code: 'fixed', label: 'mastered', date: null };
     const delta = diffDays(today(), t.nextReview);
-    const which = t.stage === 1 ? 'первый' : 'второй';
-    if (delta < 0) return { code: 'overdue', label: 'просрочен ' + which + ' повтор', date: t.nextReview };
-    if (delta === 0) return { code: 'today', label: which + ' повтор сегодня', date: t.nextReview };
-    return { code: 'studied', label: which + ' повтор ' + human(t.nextReview), date: t.nextReview };
+    const which = t.stage === 1 ? 'first' : 'second';
+    if (delta < 0) return { code: 'overdue', label: which + ' review overdue', date: t.nextReview };
+    if (delta === 0) return { code: 'today', label: which + ' review today', date: t.nextReview };
+    return { code: 'studied', label: which + ' review ' + human(t.nextReview), date: t.nextReview };
   }
 
   function isDue(id) { const s = status(id).code; return s === 'today' || s === 'overdue'; }
@@ -303,7 +303,7 @@
   function importJSON(text) {
     const parsed = JSON.parse(text);
     const incoming = parsed && parsed.progress ? parsed.progress : parsed;
-    if (!incoming || typeof incoming !== 'object' || typeof incoming.topics !== 'object') throw new Error('В файле нет прогресса');
+    if (!incoming || typeof incoming !== 'object' || typeof incoming.topics !== 'object') throw new Error('No progress found in this file');
     data = { version: 2, topics: incoming.topics, activity: incoming.activity || {}, daySec: incoming.daySec || {} };
     save();
     if (parsed.extra && typeof parsed.extra === 'object') {

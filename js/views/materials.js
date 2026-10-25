@@ -23,14 +23,14 @@
     if (note) main.appendChild(el('span', 'mat-note', esc(note)));
     r.appendChild(main);
     const act = el('div', 'mat-act');
-    if (stored[it.id]) act.appendChild(UI.button('btn btn-sm', 'открыть', function () { Files.open(it.id).catch(function (e) { UI.toast(e.message); }); }));
+    if (stored[it.id]) act.appendChild(UI.button('btn btn-sm', 'open', function () { Files.open(it.id).catch(function (e) { UI.toast(e.message); }); }));
     const a = el('a', 'btn btn-sm btn-ghost', it.kind === 'video' ? 'youtube ↗' : 'telegram ↗');
     a.href = it.url;
     a.target = '_blank';
     a.rel = 'noopener';
     act.appendChild(a);
     if (it.kind === 'pdf') {
-      const pick = el('label', 'btn btn-sm btn-ghost', stored[it.id] ? 'заменить' : 'подключить');
+      const pick = el('label', 'btn btn-sm btn-ghost', stored[it.id] ? 'replace' : 'add');
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'application/pdf,.pdf';
@@ -38,9 +38,9 @@
       input.addEventListener('change', function () {
         if (!input.files[0]) return;
         Files.put(it.id, input.files[0]).then(refreshKeys).then(function () {
-          UI.toast('«' + it.title + '» сохранён в приложении.', { kind: 'ok' });
+          UI.toast('“' + it.title + '” saved in this browser.', { kind: 'ok' });
           r.replaceWith(row(it));
-        }, function (e) { UI.toast('Не удалось сохранить: ' + e.message); });
+        }, function (e) { UI.toast('Could not save: ' + e.message); });
       });
       pick.appendChild(input);
       act.appendChild(pick);
@@ -60,9 +60,9 @@
       const head = el('section', 'mod');
       head.innerHTML = '<div class="mod-head"><span class="mod-name">materials</span><span class="mod-meta">' + esc(MATERIALS.author) + ' · telegram</span></div>';
       const body = el('div', 'mod-body');
-      body.appendChild(el('p', null, 'Полезные файлы и ролики из закрепа канала <a href="' + MATERIALS.post + '" target="_blank" rel="noopener">t.me/ravilcandi</a>. Ссылка открывает пост в Telegram, там файл можно скачать.'));
-      body.appendChild(el('p', 'muted', 'Скачанные PDF подключи сюда — они сохранятся в этом приложении и будут открываться без интернета. Можно выбрать сразу все файлы: Boat 16 сам разложит их по названиям.'));
-      const bulk = el('label', 'btn btn-primary', '+ подключить файлы');
+      body.appendChild(el('p', null, 'Useful files and videos from the pinned post of <a href="' + MATERIALS.post + '" target="_blank" rel="noopener">t.me/ravilcandi</a>. The link opens the post in Telegram, where you can download the file.'));
+      body.appendChild(el('p', 'muted', 'Add downloaded PDFs here — they\'ll be stored in this browser and open without internet. You can pick all files at once: the site matches them by name.'));
+      const bulk = el('label', 'btn btn-primary', '+ add files');
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
@@ -72,9 +72,9 @@
         if (!input.files.length) return;
         Files.addMany(input.files).then(function (res) {
           const matched = res.filter(function (x) { return x.item; }).length;
-          UI.toast('Сохранено файлов: ' + res.length + (matched < res.length ? ', без пары в списке: ' + (res.length - matched) : ''), { kind: 'ok' });
+          UI.toast('Files saved: ' + res.length + (matched < res.length ? ', not matched to the list: ' + (res.length - matched) : ''), { kind: 'ok' });
           refreshKeys().then(draw);
-        }, function (e) { UI.toast('Не удалось сохранить: ' + e.message); });
+        }, function (e) { UI.toast('Could not save: ' + e.message); });
       });
       bulk.appendChild(input);
       body.appendChild(bulk);
@@ -94,15 +94,15 @@
       const extra = Object.keys(stored).filter(function (k) { return k.indexOf('file:') === 0; });
       if (extra.length) {
         const m = el('section', 'mod');
-        m.appendChild(el('div', 'mod-head', '<span class="mod-name">другие файлы</span>'));
+        m.appendChild(el('div', 'mod-head', '<span class="mod-name">other files</span>'));
         const b = el('div', 'mod-body rows');
         extra.forEach(function (k) {
           const r = el('div', 'mat-row');
           r.appendChild(el('span', 'mat-kind kind-pdf', 'pdf'));
           r.appendChild(el('div', 'mat-main', '<span class="mat-title">' + esc(k.slice(5)) + '</span>'));
           const act = el('div', 'mat-act');
-          act.appendChild(UI.button('btn btn-sm', 'открыть', function () { Files.open(k); }));
-          act.appendChild(UI.button('btn btn-sm btn-ghost', 'удалить', function () { Files.remove(k).then(refreshKeys).then(draw); }));
+          act.appendChild(UI.button('btn btn-sm', 'open', function () { Files.open(k); }));
+          act.appendChild(UI.button('btn btn-sm btn-ghost', 'delete', function () { Files.remove(k).then(refreshKeys).then(draw); }));
           r.appendChild(act);
           b.appendChild(r);
         });

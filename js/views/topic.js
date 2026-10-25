@@ -12,7 +12,7 @@
   'use strict';
 
   const el = UI.el, esc = UI.esc;
-  const LEVELS = { easy: 'базовый', mid: 'средний', hard: 'формат ОГЭ' };
+  const LEVELS = { easy: 'basic', mid: 'intermediate', hard: 'OGE format' };
   const TAB_NAMES = { video: 'video', notes: 'notes', review: 'review', practice: 'practice' };
 
   function reviewItems(id) {
@@ -40,7 +40,7 @@
 
     /* ---------- Шапка ---------- */
     const head = el('div', 'topic-head');
-    head.appendChild(el('div', 'kicker', esc(Subjects.get(subj).dir) + '/' + esc(topic.id) + ' · тема ' + String(topic.num).padStart(2, '0') + ' · ' + esc(topic.section)));
+    head.appendChild(el('div', 'kicker', esc(Subjects.get(subj).dir) + '/' + esc(topic.id) + ' · topic ' + String(topic.num).padStart(2, '0') + ' · ' + esc(topic.section)));
     head.appendChild(el('h1', 'topic-title', esc(topic.title)));
     const statusLine = el('div', 'status-line');
     head.appendChild(statusLine);
@@ -51,15 +51,15 @@
       const parts = [];
       const cls = { 'new': 'dim', studied: 'ok', today: 'warn', overdue: 'bad', fixed: 'moon' }[st.code];
       parts.push('<span class="chip ' + cls + '">' + esc(st.code === 'new' ? st.label : st.label) + '</span>');
-      if (topic.oge && topic.oge.length) parts.push('<span>огэ №' + esc(topic.oge.join(', ')) + '</span>');
+      if (topic.oge && topic.oge.length) parts.push('<span>oge #' + esc(topic.oge.join(', ')) + '</span>');
       parts.push('<span>progress ' + Math.round(Progress.percent(topic.id)) + '%</span>');
       const left = Progress.missing(topic.id);
       if (left.length && st.code === 'new') {
         const t = Progress.peek(topic.id) || {};
-        parts.push('<span>осталось: ' + left.map(function (k) {
-          if (k === 'theory') return 'шпора';
-          if (k === 'test') return 'тест на «5»';
-          return 'практика ' + Math.floor((t.practiceSec || 0) / 60) + '/' + Subjects.get(subj).goalMin + ' мин';
+        parts.push('<span>left: ' + left.map(function (k) {
+          if (k === 'theory') return 'notes';
+          if (k === 'test') return 'test with a 5';
+          return 'practice ' + Math.floor((t.practiceSec || 0) / 60) + '/' + Subjects.get(subj).goalMin + ' min';
         }).join(', ') + '</span>');
       }
       statusLine.innerHTML = parts.join('<span class="sep">·</span>');
@@ -103,7 +103,7 @@
       else Practice.mount(panel, topic, paintStatus);
       const i = tabs.indexOf(name);
       if (name !== 'practice' && tabs[i + 1]) {
-        const nx = UI.button('btn next-tab', 'дальше: ' + TAB_NAMES[tabs[i + 1]] + ' →', function () { open(tabs[i + 1]); window.scrollTo({ top: head.offsetTop, behavior: 'smooth' }); });
+        const nx = UI.button('btn next-tab', 'next: ' + TAB_NAMES[tabs[i + 1]] + ' →', function () { open(tabs[i + 1]); window.scrollTo({ top: head.offsetTop, behavior: 'smooth' }); });
         panel.appendChild(nx);
       }
       Text.render(panel);
@@ -124,11 +124,11 @@
     const foot = el('div', 'topic-foot');
     const prev = found.list[found.index - 1], next = found.list[found.index + 1];
     foot.appendChild(prev ? link(prev, '← ') : el('span'));
-    foot.appendChild(UI.button('link-btn danger', 'сбросить прогресс темы', function () {
-      if (!confirm('Сбросить прогресс по теме «' + topic.title + '»? Отметка «изучена», повторы, минуты практики и попытки удалятся.')) return;
+    foot.appendChild(UI.button('link-btn danger', 'reset topic progress', function () {
+      if (!confirm('Reset progress for “' + topic.title + '”? The “studied” mark, reviews, practice minutes and attempts will be deleted.')) return;
       Timer.stop();
       Progress.resetTopic(topic.id);
-      UI.toast('Прогресс темы сброшен.');
+      UI.toast('Topic progress reset.');
       App.route();
     }));
     foot.appendChild(next ? link(next, '', ' →') : el('span'));
@@ -154,11 +154,11 @@
     box.innerHTML = '';
     const inline = embeddable(v);
     const poster = UI.button('yt-poster' + (inline ? '' : ' external'),
-      '<span class="yt-play">' + (inline ? '▶' : '↗') + '</span><span class="yt-title">' + esc(v.title) + (v.start ? ' · с ' + UI.clock(v.start) : '') + '</span>' +
-      (inline ? '' : '<span class="yt-note">автор разрешил смотреть только на YouTube — откроется в браузере</span>'));
+      '<span class="yt-play">' + (inline ? '▶' : '↗') + '</span><span class="yt-title">' + esc(v.title) + (v.start ? ' · from ' + UI.clock(v.start) : '') + '</span>' +
+      (inline ? '' : '<span class="yt-note">the author allows watching only on YouTube — opens in the browser</span>'));
     poster.style.backgroundImage = 'url(https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg)';
     poster.addEventListener('click', function () {
-      if (!navigator.onLine) { UI.toast('Нужен интернет, чтобы смотреть ролик.'); return; }
+      if (!navigator.onLine) { UI.toast('You need internet to watch the video.'); return; }
       if (!inline) { window.open(ytLink(v), '_blank', 'noopener'); return; }
       const f = document.createElement('iframe');
       f.src = 'https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&rel=0&modestbranding=1' + (v.start ? '&start=' + v.start : '');
@@ -185,13 +185,13 @@
     const rows = el('div', 'playlist');
     function pick(i) {
       player(stage, list[i]);
-      meta.innerHTML = '<span>' + esc(list[i].title) + '</span><a href="' + ytLink(list[i]) + '" target="_blank" rel="noopener">открыть на YouTube ↗</a>';
+      meta.innerHTML = '<span>' + esc(list[i].title) + '</span><a href="' + ytLink(list[i]) + '" target="_blank" rel="noopener">open on YouTube ↗</a>';
       rows.querySelectorAll('.pl-row').forEach(function (r, j) { r.classList.toggle('on', j === i); });
     }
     if (list.length > 1) {
       list.forEach(function (v, i) {
-        const where = embeddable(v) ? '<span class="pl-w in">▶ здесь</span>' : '<span class="pl-w">youtube ↗</span>';
-        rows.appendChild(UI.button('pl-row', '<span class="pl-n">' + (i ? 'доп.' : 'основной') + '</span><span class="pl-t">' + esc(v.title) + '</span>' + where + '<span class="pl-d">' + esc(v.dur) + '</span>', function () { pick(i); }));
+        const where = embeddable(v) ? '<span class="pl-w in">▶ here</span>' : '<span class="pl-w">youtube ↗</span>';
+        rows.appendChild(UI.button('pl-row', '<span class="pl-n">' + (i ? 'extra' : 'main') + '</span><span class="pl-t">' + esc(v.title) + '</span>' + where + '<span class="pl-d">' + esc(v.dur) + '</span>', function () { pick(i); }));
       });
       panel.appendChild(rows);
     }
@@ -229,7 +229,7 @@
 
     // Конец шпоры: теория засчитывается, когда метка видна
     const t = Progress.peek(topic.id);
-    const end = el('div', 'notes-end' + (t && t.theoryRead ? ' done' : ''), t && t.theoryRead ? '— шпора прочитана —' : '— долистай до этой строки, и шпора засчитается —');
+    const end = el('div', 'notes-end' + (t && t.theoryRead ? ' done' : ''), t && t.theoryRead ? '— notes read —' : '— scroll to this line to count the notes as read —');
     body.appendChild(end);
     if (!(t && t.theoryRead) && 'IntersectionObserver' in window) {
       const io = new IntersectionObserver(function (entries) {
@@ -237,8 +237,8 @@
         io.disconnect();
         const became = Progress.markTheoryRead(topic.id);
         end.classList.add('done');
-        end.textContent = '— шпора прочитана —';
-        UI.toast(became ? 'Тема изучена. Первый повтор — ' + Progress.human(Progress.status(topic.id).date) + '.' : (isMath ? 'Шпора прочитана. Дальше — разбор и практика.' : 'Шпора прочитана. Дальше — разбор, тест и практика.'), { kind: 'ok' });
+        end.textContent = '— notes read —';
+        UI.toast(became ? 'Topic studied. First review — ' + Progress.human(Progress.status(topic.id).date) + '.' : (isMath ? 'Notes read. Next — walkthrough and practice.' : 'Notes read. Next — walkthrough, test and practice.'), { kind: 'ok' });
         onRead();
       }, { threshold: 1 });
       io.observe(end);
@@ -262,15 +262,15 @@
     box.appendChild(el('h2', 'sub-title', '<span class="sub-num">' + String(si + 1).padStart(2, '0') + '</span><span>' + Text.rich(sub.title) + '</span>'));
     if (sub.source && sub.source.length) {
       const src = el('div', 'block src-block');
-      src.appendChild(el('div', 'eyebrow', isMath ? 'шпаргалка' : 'шпора'));
+      src.appendChild(el('div', 'eyebrow', isMath ? 'cheat sheet' : 'notes'));
       src.appendChild(Text.source(sub.source));
       box.appendChild(src);
     } else {
-      box.appendChild(el('p', 'muted', isMath ? 'В шпаргалке этого нет — ниже объяснение по школьной программе.' : 'В шпоре отдельного текста нет — ниже материал из школьной программы.'));
+      box.appendChild(el('p', 'muted', isMath ? 'This isn\'t in the cheat sheet — below is an explanation from the school curriculum.' : 'No separate text in the notes — below is material from the school curriculum.'));
     }
     if (sub.explain && sub.explain.length) {
       const ex = el('div', 'block explain');
-      ex.appendChild(el('div', 'eyebrow', 'объяснение простыми словами'));
+      ex.appendChild(el('div', 'eyebrow', 'explained simply'));
       sub.explain.forEach(function (p) { ex.appendChild(el('p', null, Text.rich(p))); });
       if (isMath && sub.terms && sub.terms.length) {
         const dl = el('dl', 'terms');
@@ -281,7 +281,7 @@
     }
     if (sub.examples && sub.examples.length) {
       const exs = el('div', 'block examples');
-      exs.appendChild(el('div', 'eyebrow', 'примеры'));
+      exs.appendChild(el('div', 'eyebrow', 'examples'));
       sub.examples.forEach(function (ex) { exs.appendChild(example(ex)); });
       box.appendChild(exs);
     }
@@ -292,7 +292,7 @@
     const card = el('div', 'example');
     card.appendChild(el('span', 'level ' + ex.level, LEVELS[ex.level] || ''));
     card.appendChild(el('p', 'ex-task', Text.rich(ex.task)));
-    card.appendChild(reveal(ex.steps || [], ex.answer, 'показать решение'));
+    card.appendChild(reveal(ex.steps || [], ex.answer, 'show solution'));
     return card;
   }
 
@@ -308,11 +308,11 @@
       box.appendChild(ol);
     }
     if (extra) box.appendChild(extra);
-    if (answer) box.appendChild(el('p', 'answer', '<span>ответ:</span> ' + Text.rich(answer)));
+    if (answer) box.appendChild(el('p', 'answer', '<span>answer:</span> ' + Text.rich(answer)));
     btn.addEventListener('click', function () {
       const on = !box.classList.contains('on');
       box.classList.toggle('on', on);
-      btn.textContent = on ? 'скрыть' : label;
+      btn.textContent = on ? 'hide' : label;
       btn.setAttribute('aria-expanded', String(on));
     });
     frag.appendChild(btn);
@@ -325,12 +325,12 @@
      ========================================================= */
   function reviewTab(panel, topic) {
     const items = reviewItems(topic.id);
-    panel.appendChild(el('div', 'block-head', '<h3>review</h3><span class="muted">реальные задания ОГЭ · решение · видеоразбор</span>'));
-    panel.appendChild(el('p', 'muted', 'Сначала реши сам, потом открой решение. Кнопка ▶ включает видеоразбор этого задания с нужной минуты.'));
+    panel.appendChild(el('div', 'block-head', '<h3>review</h3><span class="muted">real OGE tasks · solution · video walkthrough</span>'));
+    panel.appendChild(el('p', 'muted', 'Solve it yourself first, then open the solution. The ▶ button plays the video walkthrough of this task from the right minute.'));
     items.tasks.forEach(function (r) { panel.appendChild(taskCard(r)); });
     if (items.clips.length) {
       const box = el('div', 'clips');
-      box.appendChild(el('div', 'eyebrow', 'ещё видеоразборы по теме'));
+      box.appendChild(el('div', 'eyebrow', 'more video walkthroughs on this topic'));
       items.clips.forEach(function (c) {
         const v = c.video || REVIEW_SOURCES[c.src].video;
         const src = c.src ? REVIEW_SOURCES[c.src].title : v.title;
@@ -356,8 +356,8 @@
     head.appendChild(el('span', null, esc(src.short) + ' · №' + r.n));
     const slot = el('div', 'player rv-player');
     slot.hidden = true;
-    const vlabel = (r.vsrc ? 'аналог ' + vsrc.short + ' ' : '') + (r.t ? UI.clock(r.t) : 'весь разбор');
-    head.appendChild(UI.button('link-btn', '▶ видеоразбор · ' + esc(vlabel), function () {
+    const vlabel = (r.vsrc ? 'similar to ' + vsrc.short + ' ' : '') + (r.t ? UI.clock(r.t) : 'full walkthrough');
+    head.appendChild(UI.button('link-btn', '▶ video walkthrough · ' + esc(vlabel), function () {
       slot.hidden = !slot.hidden;
       if (!slot.hidden && !slot.firstChild) player(slot, { id: vsrc.video.id, title: vsrc.video.title + ' · ' + vsrc.video.author, start: r.t || 0 });
     }));
@@ -366,7 +366,7 @@
     card.appendChild(slot);
     if (r.ctx) {
       const d = el('details', 'ctx');
-      d.appendChild(el('summary', null, r.ctx === 'tires' ? 'условие к заданиям 1–5' : 'текст к заданиям 18–20'));
+      d.appendChild(el('summary', null, r.ctx === 'tires' ? 'context for tasks 1–5' : 'text for tasks 18–20'));
       d.appendChild(Text.source(REVIEW_CONTEXT[r.ctx]));
       card.appendChild(d);
     }
@@ -378,7 +378,7 @@
       card.appendChild(ol);
     }
     const extra = r.simg ? el('div', null, Text.figure('img', r.simg)) : null;
-    card.appendChild(reveal(r.steps || [], r.answer, 'показать решение', extra));
+    card.appendChild(reveal(r.steps || [], r.answer, 'show solution', extra));
     return card;
   }
 

@@ -14,7 +14,7 @@
   function db() {
     if (dbp) return dbp;
     dbp = new Promise(function (resolve, reject) {
-      if (!window.indexedDB) { reject(new Error('IndexedDB недоступна')); return; }
+      if (!window.indexedDB) { reject(new Error('IndexedDB is unavailable')); return; }
       const req = indexedDB.open(DB, 1);
       req.onupgradeneeded = function () { req.result.createObjectStore(STORE); };
       req.onsuccess = function () { resolve(req.result); };
@@ -67,7 +67,7 @@
 
   function open(key) {
     return get(key).then(function (rec) {
-      if (!rec) throw new Error('Файл не найден');
+      if (!rec) throw new Error('File not found');
       const url = URL.createObjectURL(rec.blob);
       window.open(url, '_blank', 'noopener');
       setTimeout(function () { URL.revokeObjectURL(url); }, 60000);

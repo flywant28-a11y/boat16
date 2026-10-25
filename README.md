@@ -1,11 +1,14 @@
-# Boat 16
+# Курсы EcoPlant
 
-PWA для подготовки к ОГЭ по обществознанию и математике. В обычном браузере сайт показывает
-только страницу установки; учиться — в установленном приложении (Safari → Файл → «Добавить в Dock»,
-Chrome — кнопка установки). Без сборки и зависимостей: статические файлы, ES2017, без фреймворков.
+Сайт EcoPlant Courses (интерфейс на английском, учебные материалы на русском): главная — поиск по
+интернету через ecoplant.org, разделы AI (ecoplant.online для России, ecoplant.ai для других стран),
+Articles, Courses — подготовка к ОГЭ по обществознанию и математике — и Area monitoring (ecoplant.org/signin).
+Дизайн — по мотивам Lirra (кремовый фон, синий текст, крупные карточки) с зелёным акцентом EcoPlant и
+моноширинными деталями «как у разработчика». Обычный сайт, не PWA: без установки и service worker.
+Без сборки и зависимостей: статические файлы, ES2017, без фреймворков — папку целиком кладём на сервер
+(пути относительные, работает и в подпапке).
 
-Локально: `python3 -m http.server 8782 --directory boat16`, приложение — `http://localhost:8782/?app`
-(на localhost `?app` открывает приложение в браузере, а service worker берёт файлы из сети, не из кеша).
+Локально: `python3 -m http.server 8782 --directory boat16`, сайт — `http://localhost:8782/`.
 
 ## Путь темы
 
@@ -22,15 +25,13 @@ Chrome — кнопка установки). Без сборки и зависи
 ## Файлы
 
 ```
-index.html            разметка, подключает art/core/boot
-manifest.webmanifest  PWA
-sw.js                 service worker: оболочка при установке, картинки — по ходу; VERSION сбрасывает кеш
-css/app.css           вся тема (токены в :root)
-fonts/                JetBrains Mono (OFL), кириллица и латиница
-icons/                иконки — node tools/make-icons.js из пиксельного логотипа
-js/art.js             пиксельный океан, луна, лодка (браузер + node)
+index.html            разметка, подключает core/boot
+css/app.css           вся тема (токены в :root): палитра Lirra + зелёный EcoPlant
+fonts/                Manrope и JetBrains Mono (OFL), кириллица и латиница
+icons/                иконки и логотип EcoPlant (с ecoplant.org): ecoplant-logo — надпись, ecoplant-mark — круг
+js/art.js             старый пиксельный океан и лодка — в приложении не подключён, нужен только tools/make-icons.js
 js/core.js            UI-помощники, Store (localStorage, префикс boat16:)
-js/boot.js            страница установки или загрузка приложения
+js/boot.js            загрузка данных и модулей, снятие старого service worker
 js/progress.js        Subjects, Progress — статусы, повторы, экспорт/импорт
 js/bank.js            банк задач ФИПИ: очередь, проверка ответа, статистика
 js/text.js            шпора: разметка, KaTeX, рисунки, проверка терминов
@@ -40,7 +41,8 @@ js/practice.js        вкладка practice, карточки задач и в
 js/popquiz.js         опрос по закреплённым темам
 js/files.js           свои PDF в IndexedDB
 js/plan.js            план до ОГЭ: даты экзаменов, раскладка новых тем по дням, темп
-js/views/*.js         экраны: home, topic, calendar, materials, settings
+js/views/search.js    главная: поиск EcoPlant и научные статьи; ссылка на ИИ по стране для бокового меню
+js/views/*.js         экраны курсов: home (#/courses), topic, calendar, materials, settings
 js/app.js             роутер и верхняя панель
 data/social.js        54 темы обществознания (шпора, объяснения, примеры, 3 варианта теста)
 data/math-topics.js   38 тем математики
@@ -71,5 +73,5 @@ settings → импорт принимает и экспорт старого с
 
 ## Публикация
 
-GitHub Pages из корня этой папки. После изменения файлов поднять `VERSION` в `sw.js`,
-чтобы установленные приложения скачали новую версию.
+Папку целиком — на сервер ecoplant.org. После изменения файлов поднять `VERSION` в `js/boot.js`:
+модули грузятся с `?v=<VERSION>`, и браузеры возьмут новые файлы, а не кеш.

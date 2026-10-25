@@ -11,9 +11,9 @@
   'use strict';
 
   const el = UI.el, esc = UI.esc;
-  const WEEK = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
-  const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
-  const DOW = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  const WEEK = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+  const DOW = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function key(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -43,7 +43,7 @@
       a = d.reviews.length ? '<i class="warn">↻' + d.reviews.length + '</i>' : '<i class="z">·</i>';
       c = d.planned.length ? '<i class="plan">+' + d.planned.length + '</i>' : '';
     }
-    if (d.exam.length) c = '<i class="ex">огэ</i>';
+    if (d.exam.length) c = '<i class="ex">oge</i>';
     b.innerHTML = '<span class="cd-n">' + (when === 'today' ? '[' + n + ']' : n) + '</span><span class="cd-a">' + a + '</span><span class="cd-b">' + c + '</span>';
     b.setAttribute('aria-label', d.key);
     b.addEventListener('click', function () { opts.onPick(d.key); });
@@ -67,15 +67,15 @@
         box.appendChild(a);
       });
     }
-    d.exam.forEach(function (s) { box.appendChild(el('div', 'cal-day-label ex', 'ОГЭ · ' + esc(Subjects.get(s).name.toLowerCase()))); });
-    list('просрочено', d.overdue, 'bad', 'practice');
-    list('повтор', d.reviews, 'warn', 'practice');
-    list('новые темы по плану', d.planned, 'plan');
-    list('изучено', d.closed, 'ok');
-    list('сдан повтор', d.passed, 'ok');
-    if (delta <= 0) box.appendChild(el('div', 'cal-day-label', 'практика · ' + d.minutes + ' мин'));
+    d.exam.forEach(function (s) { box.appendChild(el('div', 'cal-day-label ex', 'OGE · ' + esc(Subjects.get(s).name.toLowerCase()))); });
+    list('overdue', d.overdue, 'bad', 'practice');
+    list('review', d.reviews, 'warn', 'practice');
+    list('new topics per plan', d.planned, 'plan');
+    list('studied', d.closed, 'ok');
+    list('review passed', d.passed, 'ok');
+    if (delta <= 0) box.appendChild(el('div', 'cal-day-label', 'practice · ' + d.minutes + ' min'));
     if (box.children.length === 1 || (delta > 0 && !d.reviews.length && !d.planned.length && !d.exam.length)) {
-      box.appendChild(el('div', 'muted small', delta > 0 ? '— свободный день —' : (d.minutes ? '' : '— не занимался —')));
+      box.appendChild(el('div', 'muted small', delta > 0 ? '— free day —' : (d.minutes ? '' : '— no study —')));
     }
     return box;
   }
@@ -90,24 +90,24 @@
       const i = info[s];
       const row = el('div', 'plan-row');
       const label = el('label', 'plan-exam');
-      label.innerHTML = '<span class="plan-subj">' + esc(Subjects.get(s).dir) + '</span><span class="muted">огэ</span>';
+      label.innerHTML = '<span class="plan-subj">' + esc(Subjects.get(s).dir) + '</span><span class="muted">oge</span>';
       const input = document.createElement('input');
       input.type = 'date';
       input.value = i.exam;
       input.min = Progress.today();
       input.addEventListener('change', function () { Plan.setExam(s, input.value); onChange(); });
       label.appendChild(input);
-      if (i.guess) label.appendChild(el('span', 'note', 'примерно — укажи дату'));
+      if (i.guess) label.appendChild(el('span', 'note', 'approximate — set the date'));
       row.appendChild(label);
       let verdict;
-      if (!i.left) verdict = '<span class="ok">все темы изучены — остались повторы</span>';
-      else if (!i.have) verdict = '<span class="warn">за 2 недели ни одной новой темы — начни, план уже ждёт</span>';
-      else if (i.eta <= i.finish) verdict = '<span class="ok">успеваешь: в своём темпе закончишь ' + esc(Progress.human(i.eta)) + '</span>';
-      else verdict = '<span class="bad">не успеваешь: в своём темпе закончишь ' + esc(Progress.human(i.eta)) + ', а нужно к ' + esc(Progress.human(i.finish)) + '</span>';
+      if (!i.left) verdict = '<span class="ok">all topics studied — only reviews left</span>';
+      else if (!i.have) verdict = '<span class="warn">no new topics in 2 weeks — get started, the plan is waiting</span>';
+      else if (i.eta <= i.finish) verdict = '<span class="ok">on track: at your pace you\'ll finish ' + esc(Progress.human(i.eta)) + '</span>';
+      else verdict = '<span class="bad">behind: at your pace you\'ll finish ' + esc(Progress.human(i.eta)) + ', but you need to by ' + esc(Progress.human(i.finish)) + '</span>';
       row.appendChild(el('div', 'plan-text',
-        '<span>осталось <b>' + i.left + '</b> ' + UI.plural(i.left, ['тема', 'темы', 'тем']) + '</span>' +
-        '<span>финиш новых тем <b>' + esc(Progress.human(i.finish)) + '</b> <span class="muted">(за 3 недели до огэ)</span></span>' +
-        '<span>нужно <b>' + fmt(i.need * 7) + '</b>/нед · твой темп <b>' + fmt(i.have * 7) + '</b>/нед</span>' + verdict));
+        '<span><b>' + i.left + '</b> ' + UI.plural(i.left, ['topic', 'topics']) + ' left</span>' +
+        '<span>new topics done by <b>' + esc(Progress.human(i.finish)) + '</b> <span class="muted">(3 weeks before the oge)</span></span>' +
+        '<span>needed <b>' + fmt(i.need * 7) + '</b>/wk · your pace <b>' + fmt(i.have * 7) + '</b>/wk</span>' + verdict));
       box.appendChild(row);
     });
     return box;
@@ -115,8 +115,8 @@
 
   function legend() {
     return el('div', 'cal-legend',
-      '<span><i class="m">25′</i> минуты практики</span><span><i class="ok">✓</i> изучено / сдан повтор</span>' +
-      '<span><i class="bad">!</i> просрочено</span><span><i class="warn">↻</i> повтор</span><span><i class="plan">+</i> новая тема по плану</span><span><i class="ex">огэ</i> экзамен</span>');
+      '<span><i class="m">25′</i> minutes of practice</span><span><i class="ok">✓</i> studied / review passed</span>' +
+      '<span><i class="bad">!</i> overdue</span><span><i class="warn">↻</i> review</span><span><i class="plan">+</i> new topic per plan</span><span><i class="ex">oge</i> exam</span>');
   }
 
   /* ---------- Экран месяца ---------- */
@@ -135,7 +135,7 @@
       nav.appendChild(UI.button('link-btn', '←', function () { shift(-1); }));
       nav.appendChild(el('span', 'cal-month', MONTHS[month.getMonth()] + ' ' + month.getFullYear()));
       nav.appendChild(UI.button('link-btn', '→', function () { shift(1); }));
-      nav.appendChild(UI.button('link-btn', 'сегодня', function () { month = parse(today.slice(0, 7)); sel = today; go(); }));
+      nav.appendChild(UI.button('link-btn', 'today', function () { month = parse(today.slice(0, 7)); sel = today; go(); }));
       head.appendChild(nav);
       m.appendChild(head);
       const body = el('div', 'mod-body');
@@ -169,7 +169,7 @@
     const info = Plan.info();
     const meta = Subjects.ORDER.map(function (s) {
       const i = info[s];
-      return Subjects.get(s).dir + ' ' + i.left + ' тем до ' + Progress.human(i.finish);
+      return Subjects.get(s).dir + ' ' + i.left + ' topics by ' + Progress.human(i.finish);
     }).join(' · ');
     box.appendChild(el('div', 'mod-head', '<span class="mod-name">calendar</span><span class="mod-meta">' + esc(meta) + '</span>'));
     const body = el('div', 'mod-body');
@@ -184,7 +184,7 @@
     body.appendChild(grid);
     const foot = el('div', 'cal-foot');
     foot.appendChild(legend());
-    const a = el('a', 'cal-open', 'открыть календарь →');
+    const a = el('a', 'cal-open', 'open calendar →');
     a.href = '#/calendar';
     foot.appendChild(a);
     body.appendChild(foot);

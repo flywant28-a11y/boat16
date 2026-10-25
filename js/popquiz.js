@@ -36,7 +36,7 @@
 
   function open() {
     const items = build();
-    if (!items.length) { UI.toast('Закреплённых тем пока нет — опрос появится после вторых повторов.'); return; }
+    if (!items.length) { UI.toast('No mastered topics yet — the quiz appears after second reviews.'); return; }
     Timer.pause(true);
     const overlay = el('div', 'overlay');
     const box = el('div', 'quiz-modal card');
@@ -46,16 +46,16 @@
     const counter = el('span', 'muted');
     head.appendChild(title);
     head.appendChild(counter);
-    head.appendChild(UI.button('link-btn', 'закрыть ✕', close));
+    head.appendChild(UI.button('link-btn', 'close ✕', close));
     box.appendChild(head);
-    box.appendChild(el('p', 'muted', 'Закреплённые темы обоих предметов. Расписание повторов не меняется.'));
+    box.appendChild(el('p', 'muted', 'Mastered topics from both subjects. The review schedule doesn\'t change.'));
     const slot = el('div', 'q-list');
     box.appendChild(slot);
     document.body.appendChild(overlay);
     document.body.classList.add('modal-open');
 
     let i = 0, correct = 0;
-    function paint() { counter.textContent = Math.min(i + 1, items.length) + '/' + items.length + ' · верно ' + correct; }
+    function paint() { counter.textContent = Math.min(i + 1, items.length) + '/' + items.length + ' · correct ' + correct; }
 
     function next() {
       slot.innerHTML = '';
@@ -69,7 +69,7 @@
           if (ok) correct++;
           paint();
           const row = el('div', 'q-actions');
-          const more = UI.button('btn btn-primary', 'Дальше →', function () { i++; next(); });
+          const more = UI.button('btn btn-primary', 'Next →', function () { i++; next(); });
           row.appendChild(more);
           node.appendChild(row);
           UI.nextOnEnter(more);
@@ -85,9 +85,9 @@
     function finish() {
       counter.textContent = '';
       const res = el('div', 'result card ' + (correct >= 8 ? 'g5' : correct >= 5 ? 'g4' : 'g2'),
-        '<div class="grade">' + correct + '</div><div><b>' + correct + ' из ' + items.length + '</b><p>' +
-        (correct >= 8 ? 'Закреплённое держится. Можно возвращаться к практике.' : 'Часть забылась — загляни в шпору тем, где были ошибки.') + '</p></div>');
-      res.appendChild(UI.button('btn btn-primary', 'К практике', close));
+        '<div class="grade">' + correct + '</div><div><b>' + correct + ' of ' + items.length + '</b><p>' +
+        (correct >= 8 ? 'Mastered material is holding up. You can go back to practice.' : 'Some of it has faded — check the notes for topics with mistakes.') + '</p></div>');
+      res.appendChild(UI.button('btn btn-primary', 'Back to practice', close));
       slot.appendChild(res);
     }
 
@@ -102,11 +102,11 @@
   window.addEventListener('quiz-due', function () {
     if (document.querySelector('.quiz-modal')) return;
     if (!fixedTopics().length) {
-      UI.toast('15 минут практики позади. Опрос по закреплённым темам появится, когда темы пройдут оба повтора.');
+      UI.toast('15 minutes of practice done. A quiz on mastered topics will appear once topics pass both reviews.');
       return;
     }
-    UI.toast('15 минут практики. Опрос по закреплённым темам — 10 вопросов?', {
-      actions: [{ label: 'Пройти', run: open }, { label: 'Позже', run: function () {} }]
+    UI.toast('15 minutes of practice. Quiz on mastered topics — 10 questions?', {
+      actions: [{ label: 'Start', run: open }, { label: 'Later', run: function () {} }]
     });
   });
 

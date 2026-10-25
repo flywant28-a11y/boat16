@@ -53,7 +53,7 @@
   function figure(kind, name, photo) {
     const src = figSrc(kind, name);
     return '<figure class="fig' + (photo ? ' photo' : '') + '"><button type="button" class="fig-btn" data-src="' + esc(src) + '"' +
-      (photo ? ' data-photo="1"' : '') + ' aria-label="Увеличить рисунок"><img src="' + esc(src) + '" alt="" loading="lazy"></button></figure>';
+      (photo ? ' data-photo="1"' : '') + ' aria-label="Enlarge figure"><img src="' + esc(src) + '" alt="" loading="lazy"></button></figure>';
   }
 
   function hasFigure(s) { FIG_RE.lastIndex = 0; return FIG_RE.test(s); }

@@ -1,9 +1,9 @@
 /* =========================================================
-   Главный экран из модулей:
+   Курсы (#/courses) — экран из модулей:
      today    — повторы на сегодня и следующая тема каждого предмета;
      stats    — изучено, закреплено, дни подряд, минуты;
      calendar — ближайшие 14 дней: повторы и новые темы по плану (js/views/calendar.js);
-     social / math — списки тем по разделам с поиском из верхней панели.
+     social / math — списки тем по разделам.
    ========================================================= */
 (function () {
   'use strict';
@@ -41,25 +41,25 @@
   function today() {
     const all = Subjects.all();
     const due = Progress.dueList(all);
-    const m = mod('today', Progress.human(Progress.today()) + ' · ' + new Date().toLocaleDateString('ru-RU', { weekday: 'long' }), 'mod-today');
+    const m = mod('today', Progress.human(Progress.today()) + ' · ' + new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase(), 'mod-today');
     const list = el('div', 'rows');
     due.forEach(function (tp) {
       const st = Progress.status(tp.id);
-      list.appendChild(row(tp, st.code === 'overdue' ? 'overdue' : 'today', st.mock ? 'по пробнику' : st.label, '#/t/' + tp.id + '/practice'));
+      list.appendChild(row(tp, st.code === 'overdue' ? 'overdue' : 'today', st.mock ? 'after mock exam' : st.label, '#/t/' + tp.id + '/practice'));
     });
     const last = Store.get('last', null);
     const lastFound = last && Subjects.find(last);
     if (lastFound && Progress.status(last).code === 'new') {
-      list.appendChild(row(lastFound.topic, 'started', 'продолжить', '#/t/' + last));
+      list.appendChild(row(lastFound.topic, 'started', 'continue', '#/t/' + last));
     }
     Subjects.ORDER.forEach(function (s) {
       const next = Progress.nextNew(Subjects.get(s).topics.filter(function (tp) { return tp.id !== last; }));
-      if (next) list.appendChild(row(next, 'new', 'следующая · ' + Subjects.get(s).dir, '#/t/' + next.id));
+      if (next) list.appendChild(row(next, 'new', 'next · ' + Subjects.get(s).dir, '#/t/' + next.id));
     });
-    if (!list.children.length) list.appendChild(el('p', 'muted', 'На сегодня всё сделано.'));
+    if (!list.children.length) list.appendChild(el('p', 'muted', 'All done for today.'));
     m.body.appendChild(list);
     if (PopQuiz.fixedTopics().length) {
-      m.body.appendChild(UI.button('btn btn-sm', '▸ pop-quiz по закреплённым темам', PopQuiz.open));
+      m.body.appendChild(UI.button('btn btn-sm', '▸ pop-quiz on mastered topics', PopQuiz.open));
     }
     return m.box;
   }
@@ -87,11 +87,11 @@
       pct = Math.round(pct / topics.length);
       html += '<div class="stat-subj"><div class="kv"><span>' + Subjects.get(s).dir + '</span><b>' + pct + '%</b></div>' +
         '<div class="meter"><span style="width:' + pct + '%"></span></div>' +
-        '<div class="kv small"><span>изучено ' + studied + '/' + topics.length + '</span><span>закреплено ' + fixed + '</span></div></div>';
+        '<div class="kv small"><span>studied ' + studied + '/' + topics.length + '</span><span>mastered ' + fixed + '</span></div></div>';
     });
     const min = Math.round(Progress.daySec() / 60);
     html += '<div class="stat-grid">' +
-      cell(Progress.streak(), 'дней подряд') + cell(min, 'мин сегодня') + cell(Bank.totalSolved(), 'задач верно') + '</div>';
+      cell(Progress.streak(), 'day streak') + cell(min, 'min today') + cell(Bank.totalSolved(), 'tasks solved') + '</div>';
     m.body.innerHTML = html;
     return m.box;
   }
@@ -100,7 +100,7 @@
   /* ---------- Списки тем ---------- */
   function topics(subj) {
     const s = Subjects.get(subj);
-    const m = mod(subj === 'social' ? 'social' : 'math', s.topics.length + ' тем', 'mod-topics');
+    const m = mod(subj === 'social' ? 'social' : 'math', s.topics.length + ' topics', 'mod-topics');
     sections(subj).forEach(function (sec) {
       const group = el('div', 'topic-group');
       const done = sec.topics.filter(function (tp) { return Progress.status(tp.id).code !== 'new'; }).length;
@@ -109,7 +109,6 @@
         const c = code(tp.id);
         const a = el('a', 'topic-row st-' + c);
         a.href = '#/t/' + tp.id;
-        a.setAttribute('data-q', Text.normalize(tp.title + ' ' + (tp.oge ? tp.oge.join(' ') : '') + ' ' + sec.name));
         const oge = subj === 'math' && tp.oge ? '<span class="oge">№' + esc(tp.oge.join(',')) + '</span>' : '';
         a.innerHTML = '<span class="n">' + num(tp) + '</span><span class="t">' + esc(tp.title) + '</span>' + oge + '<span class="glyph" title="' + esc(Progress.status(tp.id).label) + '">' + GLYPH[c] + '</span>';
         group.appendChild(a);
@@ -119,38 +118,16 @@
     return m.box;
   }
 
-  function filter(root, q) {
-    q = Text.normalize(q || '').trim();
-    root.querySelectorAll('.mod-topics').forEach(function (mb) {
-      mb.querySelectorAll('.topic-group').forEach(function (g) {
-        let any = false;
-        g.querySelectorAll('.topic-row').forEach(function (r) {
-          const hit = !q || r.getAttribute('data-q').indexOf(q) !== -1;
-          r.hidden = !hit;
-          if (hit) any = true;
-        });
-        g.hidden = !any;
-      });
-    });
-    root.classList.toggle('filtering', !!q);
-  }
-
   function render(view) {
     view.classList.add('dash');
+    view.appendChild(el('header', 'dash-head',
+      '<div class="eyebrow">courses</div><h1 class="page-title">Courses</h1>' +
+      '<p class="page-lead">OGE exam · social studies and math: notes, videos, walkthroughs and unlimited practice.</p>'));
     view.appendChild(today());
     view.appendChild(stats());
     view.appendChild(CalendarView.module());
     view.appendChild(topics('social'));
     view.appendChild(topics('math'));
-    const input = document.querySelector('.search input');
-    if (input && input.value) filter(view, input.value);
-    // Роутер переиспользует элемент view — слушатель живёт, пока не отрисован другой экран
-    const token = {};
-    view._screen = token;
-    window.addEventListener('topic-filter', function onFilter(e) {
-      if (view._screen !== token) { window.removeEventListener('topic-filter', onFilter); return; }
-      filter(view, e.detail.q);
-    });
   }
 
   window.HomeView = { render };

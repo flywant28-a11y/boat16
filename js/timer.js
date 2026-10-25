@@ -37,9 +37,9 @@
     active.bar.classList.toggle('idle', !run);
     active.bar.querySelector('.pt-time').textContent = UI.mmss(active.sec);
     active.bar.querySelector('.pt-fill').style.width = pct + '%';
-    active.bar.querySelector('.pt-state').textContent = run ? 'идёт' : (paused ? 'опрос' : 'пауза');
+    active.bar.querySelector('.pt-state').textContent = run ? 'running' : (paused ? 'quiz' : 'paused');
     const left = Math.max(0, active.goal - active.sec);
-    active.bar.querySelector('.pt-left').textContent = left ? 'до цели ' + Math.ceil(left / 60) + ' мин' : 'цель набрана';
+    active.bar.querySelector('.pt-left').textContent = left ? Math.ceil(left / 60) + ' min to goal' : 'goal reached';
   }
 
   function flush() {
@@ -47,7 +47,7 @@
     const res = Progress.addPractice(active.id, active.pending);
     active.pending = 0;
     if (res.goalReached) {
-      UI.toast(res.closed ? 'Практика набрана — тема изучена. Первый повтор через 3 дня.' : 'Практика набрана. Осталось закрыть остальные шаги темы.', { kind: 'ok' });
+      UI.toast(res.closed ? 'Practice goal reached — topic studied. First review in 3 days.' : 'Practice goal reached. Finish the other steps of the topic.', { kind: 'ok' });
       window.dispatchEvent(new CustomEvent('practice-goal', { detail: { id: active.id, closed: res.closed } }));
     }
   }
@@ -77,7 +77,7 @@
       '<span class="pt-label">practice</span>' +
       '<span class="pt-time">00:00</span><span class="pt-goal">/ ' + Subjects.get(Subjects.of(id)).goalMin + ':00</span>' +
       '<span class="pt-bar"><span class="pt-fill"></span></span>' +
-      '<span class="pt-state">идёт</span><span class="pt-left"></span>';
+      '<span class="pt-state">running</span><span class="pt-left"></span>';
     active = { id, bar, interval: setInterval(tick, 1000), pending: 0, sec: t.practiceSec || 0, goal: Subjects.goalSec(id) };
     lastActivity = Date.now();
     paint();
