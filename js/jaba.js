@@ -19,14 +19,21 @@
    ждут, а длинный цикл не вешает страницу и останавливается кнопкой stop).
    Ошибки — понятным английским с номером строки и подсказкой.
    Файлы — Store 'jaba:files' { 'имя.jaba': код }; примеры и уроки — здесь же.
+
+   Свои команды: «command имя(входы) … end» в любом файле ~/code сразу
+   становится командой — и в терминале (hi Аня), и в любой программе
+   (hi "Аня" или hi("Аня")). Чужие команды подключаются лениво: при вызове
+   файл команды читается, из него берутся только определения (function,
+   command, let с простым значением). Команды умеют управлять сайтом:
+   open, theme, workspace, shell, notify, remind.
    ========================================================= */
 (function () {
   'use strict';
 
   const KEYWORDS = ['let', 'if', 'then', 'else', 'end', 'repeat', 'times', 'forever', 'while', 'do', 'for', 'each', 'in',
-    'from', 'to', 'step', 'function', 'return', 'stop', 'skip', 'and', 'or', 'not', 'is', 'true', 'false', 'nothing', 'say', 'print', 'ask'];
+    'from', 'to', 'step', 'function', 'command', 'return', 'stop', 'skip', 'and', 'or', 'not', 'is', 'true', 'false', 'nothing', 'say', 'print', 'ask'];
   const KW = new Set(KEYWORDS);
-  const OPENERS = /^\s*(if|else|repeat|while|for|function)\b/;
+  const OPENERS = /^\s*(if|else|repeat|while|for|function|command)\b/;
 
   class JabaError extends Error { constructor(msg, line) { super(msg); this.line = line; } }
   class Signal { constructor(kind, value) { this.kind = kind; this.value = value; } }
@@ -234,10 +241,29 @@
             this.next();
             return { type: 'Function', name, params, body, line };
           }
+          case 'command': {
+            this.next();
+            const name = this.expect('ident', undefined, 'a command name').value;
+            const params = [];
+            if (this.accept('op', '(')) {
+              if (!this.op(')')) { do { params.push(this.expect('ident', undefined, 'an input name').value); } while (this.accept('op', ',')); }
+              this.expect('op', ')', '“)”');
+            }
+            const body = this.block(['end'], { word: 'command', line });
+            this.next();
+            return { type: 'Command', name, params, body, line };
+          }
           case 'return': this.next(); return { type: 'Return', value: this.atEnd() ? null : this.expr(), line };
           case 'stop': this.next(); return { type: 'Stop', line };
           case 'skip': this.next(); return { type: 'Skip', line };
         }
+      }
+      // Команда без скобок: hi "Ann", 3 · theme "arch" · wait 1
+      if (t.type === 'ident' && startsValue(this.peek(1))) {
+        this.next();
+        const args = [];
+        do { args.push(this.expr()); } while (this.accept('op', ','));
+        return { type: 'CallStmt', name: t.value, args, line };
       }
       const e = this.expr();
       const op = this.peek();
@@ -412,6 +438,11 @@
     }
   };
 
+  function startsValue(k) {
+    return k.type === 'str' || k.type === 'num' || k.type === 'ident' || (k.type === 'op' && k.value === '{') ||
+      (k.type === 'kw' && (k.value === 'true' || k.value === 'false' || k.value === 'nothing' || k.value === 'ask'));
+  }
+
   function subExpr(code, line) {
     const p = new Parser(lex(code, line));
     p.skipNl();
@@ -460,6 +491,25 @@
       return '{' + parts.join(', ') + '}';
     }
     return 'function ' + (v.jname || v.name || '');
+  }
+
+  // Значение-функция из определения function / command
+  function define(n, env) {
+    return { name: n.name, params: n.params, body: n.body, closure: env, isCommand: n.type === 'Command', line: n.line };
+  }
+  function callable(v) { return typeof v === 'function' || !!(v && (v.params || v.lazy)); }
+
+  // Значение без побочных эффектов (без ask и вызовов) — такой let можно взять из файла команды
+  function pure(e) {
+    switch (e.type) {
+      case 'Lit': case 'Var': return true;
+      case 'List': return e.items.every(pure);
+      case 'Object': return e.fields.every(function (f) { return pure(f.value); });
+      case 'Unary': return pure(e.e);
+      case 'Bin': case 'Logic': return pure(e.l) && pure(e.r);
+      case 'Text': return e.parts.every(function (p) { return typeof p === 'string' || pure(p); });
+      default: return false;
+    }
   }
 
   function truthy(v) {
@@ -623,7 +673,43 @@
     }],
     now: [0, 0, 'the time now, like "14:05:09"', function () { return new Date().toTimeString().slice(0, 8); }],
     today: [0, 0, 'today\'s date, like "2026-10-26"', function () { return Progress.today(); }],
-    clear: [0, 0, 'clean the output', function () { this.host.clear(); return null; }]
+    clear: [0, 0, 'clean the output', function () { this.host.clear(); return null; }],
+
+    /* ---------- boat16: управлять сайтом ---------- */
+    open: [1, 2, 'open a window or topic: open("calendar"), open("social 3", "practice")', function (what, tab) {
+      const w = show(what).trim().toLowerCase();
+      const PAGES = { today: '#/courses', courses: '#/courses', calendar: '#/calendar', stats: '#/stats', btop: '#/stats', materials: '#/materials', ranger: '#/materials', settings: '#/settings', jaba: '#/jaba' };
+      if (w === 'terminal' || w === 'zsh') { WM.open('term', {}); return null; }
+      if (PAGES[w]) { App.go(PAGES[w]); return null; }
+      const found = Term.findTopics(w.split(/\s+/), []);
+      if (!found.length) fail('open(): I can\'t find “' + show(what) + '” — try a window name (calendar, stats, jaba…) or a topic like "social 3"');
+      if (found.length > 1) fail('open(): “' + show(what) + '” matches ' + found.length + ' topics, for example ' + found.slice(0, 3).map(Term.topicPath).join(', ') + ' — be more exact');
+      App.go('#/t/' + found[0].id + (tab ? '/' + show(tab) : ''));
+      return null;
+    }],
+    theme: [0, 1, 'switch the theme: theme("night"); theme() tells the current one', function (name) {
+      if (name === undefined) return Themes.current();
+      if (!Themes.set(show(name))) fail('theme(): there is no theme “' + show(name) + '” — try ' + Themes.ORDER.join(', '));
+      return Themes.current();
+    }],
+    workspace: [1, 1, 'switch the desktop: workspace(2)', function (n) {
+      need(n, 'number', 'workspace');
+      if (n < 1 || n > 4 || !Number.isInteger(n)) fail('workspace(): pick 1, 2, 3 or 4');
+      WM.switchWs(n);
+      return null;
+    }],
+    shell: [1, 1, 'run a terminal command: shell("today")', function (cmd) {
+      if (!this.host.shell) fail('shell() works only inside boat16');
+      return Promise.resolve(this.host.shell(show(cmd))).then(function () { return null; });
+    }],
+    notify: [1, 1, 'a pop-up message in the corner: notify("done!")', function (t) { UI.toast(show(t)); return null; }],
+    remind: [2, 2, 'remind(minutes, "text") — a pop-up later, even after the program ends (while the site is open)', function (m, t) {
+      need(m, 'number', 'remind', 'a number of minutes');
+      if (m < 0 || m > 24 * 60) fail('remind(): pick from 0 to 1440 minutes');
+      const text = show(t);
+      setTimeout(function () { UI.toast('⏰ ' + text, { ms: 20000 }); }, m * 60000);
+      return null;
+    }]
   };
   function flat(args, fn) {
     const a = args.length === 1 && Array.isArray(args[0]) ? args[0] : Array.prototype.slice.call(args);
@@ -652,6 +738,8 @@
     this.line = 1;
     this.timers = [];
     this.lastBreath = performance.now();
+    this.fileEnvs = {};
+    this.user = null;
   }
 
   Runtime.prototype = {
@@ -740,7 +828,16 @@
           }
           return;
         }
-        case 'Function': env.define(n.name, { name: n.name, params: n.params, body: n.body, closure: env }); return;
+        case 'Function': case 'Command': env.define(n.name, define(n, env)); return;
+        case 'CallStmt': {
+          const fn = env.get(n.name, n.line);
+          if (!callable(fn)) fail('“' + n.name + '” is ' + typeOf(fn) + ', not a command — did you forget “=” or a comma?', n.line);
+          const args = [];
+          for (let i = 0; i < n.args.length; i++) args.push(await this.eval(n.args[i], env));
+          this.line = n.line;
+          await this.call(fn, args, n);
+          return;
+        }
         case 'Return': throw new Signal('return', n.value ? await this.eval(n.value, env) : null);
         case 'Stop': throw new Signal('stop');
         case 'Skip': throw new Signal('skip');
@@ -750,7 +847,12 @@
           await this.store(n.target, v, env);
           return;
         }
-        case 'Expr': await this.eval(n.expr, env); return;
+        case 'Expr': {
+          // Имя команды или функции отдельной строкой — вызов без входов: study, clear
+          const v = await this.eval(n.expr, env);
+          if (n.expr.type === 'Var' && callable(v)) await this.call(v, [], n);
+          return;
+        }
       }
     },
 
@@ -841,6 +943,7 @@
     },
 
     call: async function (fn, args, n) {
+      if (fn && fn.lazy) fn = await this.resolve(fn, n.line);
       if (typeof fn === 'function') {
         const spec = fn.spec;
         if (args.length < spec[0] || args.length > spec[1]) {
@@ -850,12 +953,14 @@
         catch (e) { if (e instanceof JabaError && !e.line) e.line = n.line; throw e; }
       }
       if (!fn || !fn.params) fail('this is ' + typeOf(fn) + ', not a function — only functions can be called with ( )', n.line);
-      if (args.length !== fn.params.length) {
+      if (!fn.isCommand && args.length !== fn.params.length) {
         fail(fn.name + '() needs ' + fn.params.length + ' ' + UI.plural(fn.params.length, ['value', 'values']) + (fn.params.length ? ' (' + fn.params.join(', ') + ')' : '') + ', but got ' + args.length, n.line);
       }
       if (++this.depth > MAX_DEPTH) fail(fn.name + '() calls itself too many times — check when it should stop', n.line);
       const local = new Env(fn.closure);
-      fn.params.forEach(function (p, i) { local.define(p, args[i]); });
+      // У команды входы необязательны: чего нет — nothing; все входы — в списке args
+      fn.params.forEach(function (p, i) { local.define(p, i < args.length ? args[i] : null); });
+      if (fn.isCommand) local.define('args', args.slice());
       try { await this.block(fn.body, local); }
       catch (s) {
         if (s instanceof Signal && s.kind === 'return') return s.value;
@@ -864,6 +969,34 @@
       }
       finally { this.depth--; }
       return null;
+    },
+
+    // Определения файла без запуска остального: function, command и let с простым значением
+    defs: async function (program, env, lets) {
+      for (let i = 0; i < program.length; i++) {
+        const s = program[i];
+        if (s.type === 'Function' || s.type === 'Command') env.define(s.name, define(s, env));
+        else if (lets && s.type === 'Let' && pure(s.value)) {
+          try { env.define(s.name, await this.eval(s.value, env)); } catch (e) { /* не вышло — пропускаем */ }
+        }
+      }
+    },
+
+    // Команда из другого файла: читаем файл, берём определения, отдаём настоящую команду
+    resolve: async function (proxy, line) {
+      if (!this.fileEnvs[proxy.file]) {
+        const src = files.read(proxy.file);
+        if (src === null) fail('the command “' + proxy.name + '” was in ~/code/' + proxy.file + ', but that file is gone', line);
+        let program;
+        try { program = parse(src); }
+        catch (e) { fail('~/code/' + proxy.file + ' has a mistake on line ' + e.line + ': ' + e.message, line); }
+        const env = new Env(this.user);
+        await this.defs(program, env, true);
+        this.fileEnvs[proxy.file] = env;
+      }
+      const real = this.fileEnvs[proxy.file].vars.get(proxy.name);
+      if (!real || !real.isCommand) fail('the command “' + proxy.name + '” is no longer in ~/code/' + proxy.file, line);
+      return real;
     },
 
     bin: function (op, l, r, line) {
@@ -896,16 +1029,33 @@
     }
   };
 
-  /* Запуск. host = { print(text), ask(question) → Promise<text>, clear() }.
+  /* Запуск. host = { print(text), ask(question) → Promise<text>, clear(), shell(cmd) → Promise }.
+     opts.file — какой файл запускаем (его команды не подменяются сохранёнными);
+     opts.call = { name, args } — не запускать файл, а вызвать из него команду.
      Возвращает { stop(), done }: done → { ok, error, line, ms } */
-  function run(src, host) {
+  function run(src, host, opts) {
+    opts = opts || {};
     const rt = new Runtime(host);
     const started = performance.now();
     const done = (async function () {
       try {
+        // Свои команды из ~/code — во всех программах, подключаются при первом вызове
+        rt.user = new Env(globals());
+        commands.list().forEach(function (c) {
+          if (c.file !== opts.file) rt.user.define(c.name, { lazy: true, isCommand: true, name: c.name, file: c.file, params: c.params });
+        });
         const program = parse(src);
-        const env = new Env(globals());
-        await rt.block(program, env);
+        const env = new Env(rt.user);
+        if (opts.call) {
+          await rt.defs(program, env, true);
+          const owner = env.find(opts.call.name);
+          const fn = owner ? owner.vars.get(opts.call.name) : null;
+          if (!callable(fn)) fail('there is no command called “' + opts.call.name + '”', 1);
+          await rt.call(fn, opts.call.args, { line: fn.line || 1 });
+        } else {
+          await rt.defs(program, env, false);   // function и command можно вызывать и выше по тексту
+          await rt.block(program, env);
+        }
         return { ok: true, ms: performance.now() - started };
       } catch (e) {
         if (e instanceof Signal) {
@@ -1143,6 +1293,36 @@
       'say "The end. " + upper("ribbit!")',
       ''
     ].join('\n'),
+    'commands.jaba': [
+      '# Your own commands! Edit this file once — Jaba saves your copy,',
+      '# and every command below works in the terminal right away.',
+      '# Type: hi Anna · roll 20 · focus',
+      '',
+      '# say hi to someone',
+      'command hi(who)',
+      '  if who is nothing then who = "stranger" end',
+      '  say "hi, {who}!"',
+      'end',
+      '',
+      '# roll a dice: roll, or roll 20',
+      'command roll(sides)',
+      '  if sides is nothing then sides = 6 end',
+      '  say "you rolled {random(1, sides)} out of {sides}"',
+      'end',
+      '',
+      '# focus mode: dark theme, the plan for today, a break in 25 minutes',
+      'command focus',
+      '  theme "arch"',
+      '  shell "today"',
+      '  remind 25, "25 minutes passed — take a break!"',
+      '  notify "focus mode on. good luck!"',
+      'end',
+      '',
+      '# commands also work inside programs:',
+      'hi "Jaba"',
+      'roll 6',
+      ''
+    ].join('\n'),
     'times.jaba': [
       '# Times table, printed in neat rows',
       'for row from 1 to 9',
@@ -1208,11 +1388,57 @@
       text: 'An object groups named values: `{name: "Ann", age: 15}`. Read a field with a dot: `p.name`. Now you know enough for real programs — open the examples (files → examples) and change them.',
       task: 'Finish the game: open examples/guess.jaba, run it, then make the secret number go up to 1000.',
       code: 'let hero = {name: "Jaba", hp: 10}\nhero.hp -= 3\nsay "{hero.name} has {hero.hp} hp left"\n'
+    },
+    {
+      title: 'Your own commands',
+      text: '`command name(inputs) … end` makes a new command. As soon as the file is saved, it works in the terminal (type `name Anna`) and in every program (`name "Anna"`). Commands can drive the site: `open "calendar"`, `theme "night"`, `shell "today"`, `notify "hi"`, `remind 25, "break!"`, `workspace 2`. A # line right above a command becomes its help.',
+      task: 'Make a command `study` that opens your next topic and sets a reminder in 30 minutes. Then type `study` in the terminal.',
+      code: '# greet someone: hello Anna\ncommand hello(name)\n  if name is nothing then name = "friend" end\n  say "hello, {name}!"\n  notify "said hello to {name}"\nend\n\nhello "Jaba"\n'
     }
   ];
 
+  /* =========================================================
+     Свои команды: все «command» из файлов ~/code (не из примеров).
+     Разбор кешируется по тексту файла — список всегда свежий.
+     ========================================================= */
+  const scanned = {};
+  const commands = {
+    scan: function () {
+      const list = [], errors = [];
+      files.list().forEach(function (f) {
+        const src = files.read(f);
+        let c = scanned[f];
+        if (!c || c.src !== src) {
+          c = { src, cmds: [], error: null };
+          try {
+            const lines = src.split('\n');
+            parse(src).forEach(function (s) {
+              if (s.type !== 'Command') return;
+              const above = (lines[s.line - 2] || '').trim();
+              c.cmds.push({ name: s.name, params: s.params, file: f, line: s.line, doc: /^#/.test(above) ? above.replace(/^#\s*/, '') : '' });
+            });
+          } catch (e) {
+            if (/\bcommand\b/.test(src)) c.error = { file: f, line: e.line, error: e.message };
+          }
+          scanned[f] = c;
+        }
+        c.cmds.forEach(function (x) { list.push(x); });
+        if (c.error) errors.push(c.error);
+      });
+      return { list, errors };
+    },
+    list: function () { return commands.scan().list; },
+    // Одинаковые имена в разных файлах — работает последняя по алфавиту файлов
+    find: function (name) {
+      const l = commands.list();
+      for (let i = l.length - 1; i >= 0; i--) if (l[i].name === name) return l[i];
+      return null;
+    },
+    usage: function (c) { return c.name + c.params.map(function (p) { return ' <' + p + '>'; }).join(''); }
+  };
+
   window.Jaba = {
-    run, parse, highlight, show, files, EXAMPLES, LESSONS, KEYWORDS, OPENERS,
+    run, parse, highlight, show, files, commands, EXAMPLES, LESSONS, KEYWORDS, OPENERS,
     builtins: function () { return Object.keys(BUILTINS).map(function (k) { return { name: k, about: BUILTINS[k][2] }; }); }
   };
 })();

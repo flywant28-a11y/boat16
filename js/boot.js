@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '3.1.0';
+  const VERSION = '3.2.0';
 
   // Порядок важен: данные → ядро → модули → экраны → App
   const SCRIPTS = [

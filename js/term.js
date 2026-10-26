@@ -310,6 +310,11 @@
       run: function (t, args) {
         const c = CMDS[ALIAS[args[0]] || args[0]];
         if (!args[0]) return t.err('What manual page do you want? Try: man learn');
+        const mine = !c && Jaba.commands.find(args[0]);
+        if (mine) {
+          return t.print('<div class="man"><b>' + esc(mine.name) + '</b> — ' + esc(mine.doc || 'your command') + '\n\n<span class="dim">usage:</span> ' + esc(Jaba.commands.usage(mine)) +
+            '\n<span class="dim">defined in</span> ' + run('jaba ' + mine.file, '~/code/' + mine.file) + ' <span class="dim">line ' + mine.line + '</span></div>');
+        }
         if (!c) return t.err('No manual entry for ' + args[0]);
         t.print('<div class="man"><b>' + esc(args[0]) + '</b> — ' + esc(c.desc) + '\n\n<span class="dim">usage:</span> ' + esc(c.usage) + (TOPIC_CMDS.indexOf(args[0]) !== -1 ? '\n\n<span class="dim">topic can be:</span>  3 (inside social/ or math/) · social 3 · math/12 · 03-sfery · sfery · a word from the title, like власть' : '') + '</div>');
       }
@@ -336,11 +341,23 @@
       }
     },
     jaba: {
-      group: 'fun', usage: 'jaba [file]', desc: 'Jaba, our mini programming language — opens the editor',
+      group: 'fun', usage: 'jaba [file]', desc: 'our mini language: jaba, jaba run <file>, jaba commands, jaba lessons',
       run: function (t, args, raw) {
         const sub = args[0];
         if (!sub) return App.go('#/jaba');
         if (sub === 'lessons') { Store.set('jaba:lessons-open', true); return App.go('#/jaba'); }
+        if (sub === 'commands') {
+          const sc = Jaba.commands.scan();
+          if (!sc.list.length && !sc.errors.length) return t.print('<span class="dim">no commands yet. Write</span> command hi(who) … end <span class="dim">in any file in ~/code — see</span> ' + run('jaba examples/commands.jaba', 'the example'));
+          sc.list.forEach(function (c) {
+            const hidden = CMDS[c.name] || ALIAS[c.name];
+            const twin = Jaba.commands.find(c.name) !== c;
+            t.print('<div class="row">' + run(c.name, padEnd(Jaba.commands.usage(c), 22)) + ' ' + run('jaba ' + c.file, padEnd(c.file + ':' + c.line, 18)) + ' <span class="dim">' + esc(c.doc) + '</span>' +
+              (hidden ? ' <span class="warn">hidden: zsh already has “' + esc(c.name) + '”</span>' : twin ? ' <span class="warn">another file also has it — the other one wins</span>' : '') + '</div>');
+          });
+          sc.errors.forEach(function (e) { t.err('~/code/' + e.file + ' line ' + e.line + ': ' + e.error + ' — its commands are off until it\'s fixed'); });
+          return;
+        }
         if (sub === 'new') {
           const f = Jaba.files.free(Jaba.files.clean(args[1] || 'untitled'));
           Jaba.files.write(f, '# ' + f + '\nsay "hi"\n');
@@ -387,6 +404,12 @@
         const c = CMDS[k];
         html += '<div class="row">  ' + run(k === 'learn' ? 'learn social 1' : k === 'theme' ? 'theme' : k, padEnd(c.usage, 18)) + ' <span class="dim">' + esc(c.desc) + '</span></div>';
       });
+    });
+    const mine = Jaba.commands.list();
+    html += '<div class="h-g">my commands <span class="dim">(from ~/code — ' + run('jaba commands', 'list') + ')</span></div>';
+    if (!mine.length) html += '<div class="row">  <span class="dim">none yet — write</span> command name … end <span class="dim">in any file, see</span> ' + run('jaba examples/commands.jaba', 'an example') + '</div>';
+    mine.forEach(function (c) {
+      html += '<div class="row">  ' + run(c.name, padEnd(Jaba.commands.usage(c), 18)) + ' <span class="dim">' + esc(c.doc || '~/code/' + c.file) + '</span></div>';
     });
     html += '<div class="h-g">topic commands</div><div class="row">  <span class="fg2">notes, video, review, practice &lt;topic&gt;</span> <span class="dim">open a topic on that tab</span></div>';
     html += '<div class="h-g">keys</div><div class="dim">  Tab completes · ↑↓ history · Ctrl+L clears · Alt+Enter new terminal · Alt+D launcher · Alt+Q close window · Alt+1…4 workspaces</div></div>';
@@ -568,15 +591,23 @@
         Store.set('zsh_history', hist);
         hpos = hist.length;
       }
-      // Команды по очереди: программа Jaba сначала доработает, потом следующая команда
-      const parts = text ? text.split(/\s*(?:&&|;)\s*/).filter(Boolean) : [];
-      (function step(i) {
-        if (i >= parts.length) { paintPrompt(); scroll(); return; }
-        const r = runLine(parts[i]);
-        if (r && typeof r.then === 'function') r.then(function () { step(i + 1); });
-        else step(i + 1);
-      })(0);
+      runParts(text).then(function () { paintPrompt(); scroll(); });
     }
+
+    // Команды по очереди: программа Jaba сначала доработает, потом следующая команда
+    function runParts(text) {
+      const parts = text ? text.split(/\s*(?:&&|;)\s*/).filter(Boolean) : [];
+      return new Promise(function (done) {
+        (function step(i) {
+          if (i >= parts.length) { done(); return; }
+          const r = runLine(parts[i]);
+          if (r && typeof r.then === 'function') r.then(function () { step(i + 1); });
+          else step(i + 1);
+        })(0);
+      });
+    }
+    // shell("…") из Jaba: команды выполняются здесь же, без эха строки
+    t.shell = function (cmd) { return runParts(String(cmd).trim()); };
 
     function runLine(text) {
       const args = (text.match(/"[^"]*"|'[^']*'|\S+/g) || []).map(function (a) { return a.replace(/^["']|["']$/g, ''); });
@@ -584,7 +615,10 @@
       const rest = text.replace(/^\S+\s*/, '');
       const c = CMDS[ALIAS[name] || name];
       if (!c) {
-        const guess = Object.keys(CMDS).concat(Object.keys(ALIAS)).map(function (k) { return [k, lev(name, k)]; }).sort(function (a, b) { return a[1] - b[1]; })[0];
+        const mine = Jaba.commands.find(name);
+        if (mine) return t.runCommand(mine, args);
+        const names = Object.keys(CMDS).concat(Object.keys(ALIAS), Jaba.commands.list().map(function (x) { return x.name; }));
+        const guess = names.map(function (k) { return [k, lev(name, k)]; }).sort(function (a, b) { return a[1] - b[1]; })[0];
         t.err('zsh: command not found: ' + name);
         if (guess && guess[1] <= 2) t.print('<span class="dim">did you mean</span> ' + run(guess[0] + (args.length ? ' ' + args.join(' ') : '')) + '<span class="dim">?</span>');
         else t.print('<span class="dim">type</span> ' + run('help') + ' <span class="dim">to see every command.</span>');
@@ -596,14 +630,16 @@
     t.exec = exec;
 
     // Программа Jaba прямо в терминале: строка ввода прячется, ask спрашивает в выводе, Ctrl+C — стоп
-    t.runJaba = function (src, label) {
+    t.runs = [];
+    t.runJaba = function (src, label, opts) {
       line.hidden = true;
       box.tabIndex = -1;
-      box.focus({ preventScroll: true });
+      if (!t.runs.length) box.focus({ preventScroll: true });
       let pending = null;
       const host = {
         print: function (text) { t.print(esc(text)); },
         clear: t.clear,
+        shell: t.shell,
         ask: function (q) {
           return new Promise(function (done) {
             const row = el('div', 'o jl-ask', '<span class="jl-q">' + esc(q) + '</span>');
@@ -624,20 +660,38 @@
         },
         cancel: function () { if (pending) pending(); }
       };
-      const ctl = Jaba.run(src, host);
+      const ctl = Jaba.run(src, host, opts);
+      t.runs.push(ctl);
       t.jabaRun = ctl;
       return ctl.done.then(function (r) {
-        t.jabaRun = null;
+        t.runs = t.runs.filter(function (x) { return x !== ctl; });
+        t.jabaRun = t.runs[t.runs.length - 1] || null;
         if (r.stopped) t.print('<span class="dim">^C — stopped</span>');
         else if (!r.ok) t.err((label ? label + ': ' : '') + 'line ' + r.line + ': ' + r.error);
+        if (t.runs.length) return;   // свою команду вызвала другая — строка ввода вернётся в конце
         line.hidden = false;
         paintPrompt();
         scroll();
         if (WM.focused() === win) input.focus({ preventScroll: true });
       });
     };
+
+    // Своя команда из ~/code: входы из строки терминала, лишние слова — в последний вход
+    t.runCommand = function (cmd, args) {
+      const src = Jaba.files.read(cmd.file);
+      if (src === null) { t.err(cmd.name + ': its file ~/code/' + cmd.file + ' is gone'); return; }
+      let vals = args.slice();
+      if (cmd.params.length && vals.length > cmd.params.length) {
+        vals = vals.slice(0, cmd.params.length - 1).concat([vals.slice(cmd.params.length - 1).join(' ')]);
+      }
+      vals = vals.map(function (a) { return /^-?\d+([.,]\d+)?$/.test(a) ? parseFloat(a.replace(',', '.')) : a; });
+      return t.runJaba(src, cmd.name, { file: cmd.file, call: { name: cmd.name, args: vals } });
+    };
     box.addEventListener('keydown', function (e) {
-      if (t.jabaRun && e.ctrlKey && (e.key === 'c' || e.key === 'C') && !window.getSelection().toString()) { e.preventDefault(); t.jabaRun.stop(); }
+      if (t.runs.length && e.ctrlKey && (e.key === 'c' || e.key === 'C') && !window.getSelection().toString()) {
+        e.preventDefault();
+        t.runs.slice().reverse().forEach(function (r) { r.stop(); });
+      }
     });
 
     // Tab: команда, затем путь, тема или имя темы оформления
@@ -646,7 +700,8 @@
       const words = v.split(/\s+/);
       const last = words[words.length - 1];
       let pool;
-      if (words.length === 1) pool = Object.keys(CMDS).concat(Object.keys(ALIAS)).filter(function (k) { return CMDS[k] ? CMDS[k].desc : true; });
+      if (words.length === 1) pool = Object.keys(CMDS).concat(Object.keys(ALIAS)).filter(function (k) { return CMDS[k] ? CMDS[k].desc : true; })
+        .concat(Jaba.commands.list().map(function (c) { return c.name; }));
       else {
         const cmd = ALIAS[words[0]] || words[0];
         if (cmd === 'theme') pool = Themes.ORDER.slice();

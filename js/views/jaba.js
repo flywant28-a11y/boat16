@@ -43,7 +43,14 @@
           });
         });
       },
-      cancel: function () { if (pending) pending(); }
+      cancel: function () { if (pending) pending(); },
+      // shell("…") из редактора выполняется в терминале (последнем открытом или новом)
+      shell: function (cmd) {
+        line('jl-i', '$ ' + esc(cmd) + '  → terminal');
+        const terms = WM.list().filter(function (w) { return w.app === 'term' && w.term; });
+        const w = terms.length ? terms[terms.length - 1] : WM.open('term', {}, { background: true });
+        return w.term.shell(cmd);
+      }
     };
   }
 
@@ -100,6 +107,8 @@
     ed.appendChild(code);
     const out = el('div', 'jb-out');
     const outHead = el('div', 'jb-out-head', '<span>output</span>');
+    const cmdNote = el('span', 'jb-cmds');
+    outHead.appendChild(cmdNote);
     outHead.appendChild(UI.button('link-btn', 'clear', function () { log.innerHTML = ''; }));
     const log = el('div', 'jb-log');
     log.setAttribute('role', 'log');
@@ -141,9 +150,17 @@
       WM.setTitle(win);
       if (WM.focused() === win) history.replaceState(null, '', '#/jaba/' + encodeURIComponent(f));
       paint();
+      paintCommands();
     }
+    // Какие команды есть в этом файле — они уже работают в терминале
+    function paintCommands() {
+      const mine = isExample(file) ? [] : Jaba.commands.list().filter(function (c) { return c.file === file; });
+      cmdNote.textContent = mine.length ? 'commands: ' + mine.map(function (c) { return c.name; }).join(', ') + ' — ready in the terminal' : '';
+    }
+
     function save() {
       clearTimeout(saveTimer);
+      setTimeout(paintCommands, 0);
       if (isExample(file)) {
         if (ta.value === Jaba.files.read(file)) return;
         const copy = Jaba.files.free(file.slice(9));
@@ -283,7 +300,7 @@
       host.info('▶ ' + file);
       runBtn.hidden = true;
       stopBtn.hidden = false;
-      const me = Jaba.run(ta.value, host);
+      const me = Jaba.run(ta.value, host, { file: file });
       running = me;
       me.done.then(function (r) {
         if (running !== me) return;

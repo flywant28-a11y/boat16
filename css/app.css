@@ -723,7 +723,8 @@ a.bt-tr:hover * { color: inherit; }
 }
 .jb-ta::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); -webkit-text-fill-color: transparent; }
 .jb-out { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: rgba(0, 0, 0, .14); }
-.jb-out-head { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 4px 12px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+.jb-out-head { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 12px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+.jb-cmds { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ok); }
 .jb-log { flex: 1; overflow: auto; padding: 8px 12px 14px; font-size: 13px; line-height: 1.5; }
 .jl { white-space: pre-wrap; overflow-wrap: anywhere; }
 .jl-i { color: var(--dim); }
