@@ -87,6 +87,8 @@
   function stop() {
     if (!active) return;
     flush();
+    active.bar.classList.add('idle');
+    active.bar.querySelector('.pt-state').textContent = 'stopped';
     clearInterval(active.interval);
     active = null;
   }
@@ -96,5 +98,11 @@
   document.addEventListener('visibilitychange', function () { if (document.visibilityState !== 'visible') flush(); paint(); });
   window.addEventListener('pagehide', flush);
 
-  window.Timer = { start, stop, pause, running, flush };
+  // Для статус-бара: какая тема и сколько набрано
+  function state() {
+    if (!active) return null;
+    return { id: active.id, sec: active.sec, goal: active.goal, run: running(), paused };
+  }
+
+  window.Timer = { start, stop, pause, running, flush, state };
 })();

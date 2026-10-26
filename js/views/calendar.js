@@ -179,12 +179,12 @@
     WEEK.forEach(function (w) { grid.appendChild(el('div', 'cal-dow', w)); });
     for (let i = -shiftMon; i < 14 - shiftMon; i++) {
       const k = Progress.addDays(Progress.today(), i);
-      grid.appendChild(cell(Plan.day(k), { dim: i < 0, onPick: function (x) { location.hash = '#/calendar/' + x.slice(0, 7); } }));
+      grid.appendChild(cell(Plan.day(k), { dim: i < 0, onPick: function (x) { App.go('#/calendar/' + x.slice(0, 7)); } }));
     }
     body.appendChild(grid);
     const foot = el('div', 'cal-foot');
     foot.appendChild(legend());
-    const a = el('a', 'cal-open', 'open calendar →');
+    const a = el('a', 'cal-open', 'open calendar');
     a.href = '#/calendar';
     foot.appendChild(a);
     body.appendChild(foot);

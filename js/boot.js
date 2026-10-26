@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '2.2.3';
+  const VERSION = '3.0.0';
 
   // Порядок важен: данные → ядро → модули → экраны → App
   const SCRIPTS = [
@@ -13,12 +13,19 @@
     'vendor/katex/katex.min.js', 'vendor/katex/contrib/auto-render.min.js',
     'js/progress.js', 'js/bank.js', 'js/text.js', 'js/timer.js', 'js/files.js',
     'js/quiz.js', 'js/practice.js', 'js/popquiz.js',
-    'js/plan.js', 'js/views/calendar.js', 'js/views/search.js',
-    'js/views/home.js', 'js/views/topic.js', 'js/views/materials.js', 'js/views/settings.js',
+    'js/plan.js', 'js/themes.js', 'js/term.js', 'js/wm.js',
+    'js/views/calendar.js', 'js/views/home.js', 'js/views/topic.js', 'js/views/materials.js',
+    'js/views/settings.js', 'js/views/stats.js',
     'js/app.js'
   ];
 
   window.BOAT = { version: VERSION };
+
+  // Стили — с той же версией, что и скрипты, иначе браузер держит старые
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'css/app.css?v=' + VERSION;
+  document.head.appendChild(css);
 
   // Раньше сайт был PWA: снимаем старый service worker, иначе он отдаёт кеш прошлой версии
   if ('serviceWorker' in navigator) {

@@ -1,126 +1,134 @@
 /* =========================================================
-   App: верхняя панель, роутер и общие события.
-   Маршруты:
-     #/                    — поиск EcoPlant (js/views/search.js)
-     #/science             — научные статьи через поиск EcoPlant
-     #/courses             — курсы: модули today, calendar, темы, stats
+   App: рабочий стол boat16 — обои (js/themes.js), окна и статус-бар
+   (js/wm.js), терминал (js/term.js) и реестр приложений-окон.
+   Адрес показывает активное окно, ссылки открывают окна:
+     #/                    — терминал zsh
+     #/courses             — курсы: today, stats, calendar, темы
      #/t/<id>[/<вкладка>]  — тема: video · notes · review · practice
      #/calendar[/ГГГГ-ММ]  — календарь: повторы, план до ОГЭ, сделанное по дням
-     #/materials           — материалы Равиля из Telegram
+     #/stats               — монитор прогресса (btop)
+     #/materials           — материалы Равиля из Telegram (ranger)
      #/settings            — прогресс, о сайте
-   ИИ и Area monitoring — внешние сайты EcoPlant, открываются из переключателя сразу.
    ========================================================= */
 (function () {
   'use strict';
 
-  const el = UI.el, esc = UI.esc;
-  let view = null, bar = null;
+  function topicTitle(id) {
+    const f = Subjects.find(id);
+    return f ? Term.topicPath(f.topic) + ' — ' + f.topic.title : id;
+  }
 
-  const OUT = '<svg class="ext" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
-
-  // Логотип и ~/крошки слева; страницы курсов и переключатель разделов (как в Lirra) справа
-  function topbar() {
-    bar = el('header', 'topbar');
-    const home = el('a', 'brand');
-    home.href = '#/';
-    home.setAttribute('aria-label', 'EcoPlant — home');
-    home.innerHTML = '<img class="brand-mark" src="icons/ecoplant-mark.png" width="96" height="96" alt="EcoPlant">';
-    bar.appendChild(home);
-    bar.appendChild(el('nav', 'crumbs'));
-
-    const nav = el('nav', 'topnav');
-    nav.innerHTML = '<a href="#/calendar" data-page="calendar">calendar</a><a href="#/materials" data-page="materials">materials</a><a href="#/settings" data-page="settings">settings</a>';
-    bar.appendChild(nav);
-
-    function item(key, href, text, ext) {
-      return '<a href="' + href + '"' + (key ? ' data-sec="' + key + '"' : ' target="_blank" rel="noopener"') +
-        '><i class="pd pd-' + (key || ext) + '"></i>' + text + (ext ? OUT : '') + '</a>';
+  // Приложения окон. size/pos — от размера рабочего стола
+  const APPS = {
+    term: {
+      multi: true,
+      title: function (arg, w) { return Term.title(w); },
+      size: function (d) { return [Math.min(820, d.w * .52), Math.min(580, d.h * .64)]; },
+      pos: function () { return [10, 10]; },
+      render: function (box, arg, w) { Term.mount(box, arg, w); },
+      onFocus: function (w) { Term.focus(w); },
+      saveArg: function (w) { return { cwd: Term.cwd(w) }; }
+    },
+    topic: {
+      key: function (arg) { return 'topic:' + arg.id; },
+      valid: function (arg) { return !!(arg && Subjects.find(arg.id)); },
+      title: function (arg) { return topicTitle(arg.id); },
+      size: function (d) { return [Math.min(1060, d.w * .72), d.h * .92]; },
+      pos: function (d, w) { return [Math.max(12, d.w - w.w - 16), Math.max(8, (d.h - w.h) / 2)]; },
+      render: function (box, arg) { TopicView.render(box, Subjects.find(arg.id), arg.tab); },
+      reuse: function (w, arg) { if (arg.tab && w.content._openTab) w.content._openTab(arg.tab); },
+      hash: function (arg) { const tab = Store.get('tab:' + arg.id, null); return '#/t/' + arg.id + (tab ? '/' + tab : ''); },
+      saveArg: function (w) { return { id: w.arg.id }; }
+    },
+    courses: {
+      live: true,
+      title: function () { return 'courses — today, stats, topics'; },
+      size: function (d) { return [Math.min(1120, d.w * .74), d.h * .92]; },
+      render: function (box) { HomeView.render(box); },
+      hash: function () { return '#/courses'; }
+    },
+    calendar: {
+      title: function () { return 'calendar'; },
+      size: function (d) { return [Math.min(980, d.w * .66), d.h * .92]; },
+      render: function (box, arg) { CalendarView.render(box, arg && arg.month); },
+      reuse: function (w, arg) { if (arg && arg.month) { w.arg = arg; WM.rerender(w); } },
+      hash: function () { return '#/calendar'; },
+      saveArg: function () { return {}; }
+    },
+    stats: {
+      live: true,
+      title: function () { return 'btop — progress'; },
+      size: function (d) { return [Math.min(960, d.w * .64), d.h * .86]; },
+      render: function (box) { StatsView.render(box); },
+      hash: function () { return '#/stats'; }
+    },
+    materials: {
+      title: function () { return 'ranger ~/materials'; },
+      size: function (d) { return [Math.min(860, d.w * .6), d.h * .86]; },
+      render: function (box) { MaterialsView.render(box); },
+      hash: function () { return '#/materials'; }
+    },
+    settings: {
+      title: function () { return 'settings'; },
+      size: function (d) { return [Math.min(720, d.w * .52), Math.min(620, d.h * .8)]; },
+      render: function (box) { SettingsView.render(box); },
+      hash: function () { return '#/settings'; }
     }
-    const sw = el('nav', 'pswitch');
-    sw.setAttribute('aria-label', 'Sections');
-    sw.innerHTML = '<span class="pind"></span>' +
-      item('search', '#/', 'Search') +
-      item('', SearchView.aiUrl(), 'AI', 'ai') +
-      item('science', '#/science', 'Articles') +
-      item('courses', '#/courses', 'Courses') +
-      item('', 'https://ecoplant.org/signin', 'Area monitoring', 'monitor');
-    bar.appendChild(sw);
-    // Кнопки меняют ширину при загрузке шрифта и на узком экране — бегунок догоняет
-    const again = function () { section(bar.getAttribute('data-sec'), bar.getAttribute('data-page')); };
-    if (window.ResizeObserver) {
-      const ro = new ResizeObserver(again);
-      sw.querySelectorAll('a').forEach(function (a) { ro.observe(a); });
-    } else window.addEventListener('resize', again);
-    return bar;
+  };
+
+  // Пункты лаунчера (rofi)
+  function launchers() {
+    return [
+      { name: 'terminal', note: 'zsh · Alt+Enter', run: function () { WM.open('term'); } },
+      { name: 'courses', note: 'today, stats and every topic', run: function () { go('#/courses'); } },
+      { name: 'calendar', note: 'reviews and the plan until the OGE', run: function () { go('#/calendar'); } },
+      { name: 'btop', note: 'progress monitor', run: function () { go('#/stats'); } },
+      { name: 'ranger', note: 'materials from Telegram', run: function () { go('#/materials'); } },
+      { name: 'settings', note: 'export, import, reset progress', run: function () { go('#/settings'); } },
+      { name: 'pop-quiz', note: '10 questions on mastered topics', run: function () { PopQuiz.open(); } },
+      { name: 'theme', note: 'next wallpaper: ' + Themes.ORDER.join(', '), run: Themes.next }
+    ];
   }
 
-  // Подсветка раздела: «бегунок» переезжает под активную кнопку
-  function section(key, page) {
-    bar.setAttribute('data-sec', key);
-    bar.setAttribute('data-page', page || '');
-    let on = null;
-    bar.querySelectorAll('[data-sec]').forEach(function (a) {
-      const hit = a.getAttribute('data-sec') === key;
-      a.setAttribute('aria-current', hit ? 'page' : 'false');
-      if (hit) on = a;
+  // Открыть окно по адресу; уже открытое — просто вынести наверх
+  function go(hash) {
+    const parts = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean).map(function (p) {
+      try { return decodeURIComponent(p); } catch (e) { return p; }
     });
-    bar.querySelectorAll('[data-page]').forEach(function (a) {
-      a.setAttribute('aria-current', a.getAttribute('data-page') === page ? 'page' : 'false');
-    });
-    if (!on) return;
-    const sw = bar.querySelector('.pswitch'), ind = sw.querySelector('.pind');
-    ind.style.left = on.offsetLeft + 'px';
-    ind.style.width = on.offsetWidth + 'px';
-    // На телефоне переключатель прокручивается: показываем активную кнопку
-    if (sw.scrollWidth > sw.clientWidth) sw.scrollLeft = Math.max(0, on.offsetLeft - 12);
-  }
-
-  // Хлебные крошки: ~/courses / social / тема
-  function crumbs(parts) {
-    const box = bar.querySelector('.crumbs');
-    box.innerHTML = !parts.length ? '' : '<a href="#/courses">~/courses</a>' + parts.map(function (p) {
-      return '<span class="sep">/</span>' + (p.href ? '<a href="' + p.href + '">' + esc(p.text) + '</a>' : '<span>' + esc(p.text) + '</span>');
-    }).join('');
-  }
-
-  function route() {
-    Timer.stop();
-    Plan.refresh();   // прогресс мог измениться — план пересчитается
-    const hash = location.hash.replace(/^#\/?/, '');
-    const parts = hash.split('/').filter(Boolean).map(decodeURIComponent);
-    view.innerHTML = '';
-    view.className = 'view';
-    view._screen = null;
-    document.querySelectorAll('.overlay').forEach(function (o) { if (!o.querySelector('.quiz-modal')) o.remove(); });
-    if (parts[0] === 't' && parts[1]) {
-      const found = Subjects.find(parts[1]);
-      if (found) {
-        section('courses');
-        crumbs([{ text: Subjects.get(found.subject).dir, href: '#/courses' }, { text: found.topic.title }]);
-        TopicView.render(view, found, parts[2]);
-        return;
-      }
-    }
-    if (parts[0] === 'science') { section('science'); crumbs([]); SearchView.render(view, 'science'); }
-    else if (parts[0] === 'courses') { section('courses'); crumbs([]); HomeView.render(view); }
-    else if (parts[0] === 'calendar') { section('courses', 'calendar'); crumbs([{ text: 'calendar' }]); CalendarView.render(view, parts[1]); }
-    else if (parts[0] === 'materials') { section('courses', 'materials'); crumbs([{ text: 'materials' }]); MaterialsView.render(view); }
-    else if (parts[0] === 'settings') { section('courses', 'settings'); crumbs([{ text: 'settings' }]); SettingsView.render(view); }
-    else { section('search'); crumbs([]); SearchView.render(view); }
-    window.scrollTo(0, 0);
+    const page = parts[0];
+    if (page === 't' && parts[1] && Subjects.find(parts[1])) return WM.open('topic', { id: parts[1], tab: parts[2] || null });
+    if (page === 'calendar') return WM.open('calendar', { month: parts[1] || null });
+    if (APPS[page] && page !== 'term' && page !== 'topic') return WM.open(page, {});
+    const f = WM.focused();
+    if (f && f.app === 'term') return f;
+    const t = WM.list().filter(function (w) { return w.app === 'term'; }).pop();
+    return t ? (WM.focus(t, true), t) : WM.open('term', {});
   }
 
   function start() {
     const root = document.getElementById('root');
     root.innerHTML = '';
-    root.appendChild(topbar());
-    view = el('main', 'view');
-    root.appendChild(view);
-    window.addEventListener('hashchange', route);
-    route();
+    Themes.mount(root);
+    WM.init(root, APPS);
+    const restored = WM.restore();
+    if (!restored) WM.open('term', {});
+    const hash = location.hash;
+    if (hash && hash !== '#/' && hash !== '#') go(hash);
+    else if (!WM.focused()) go('#/');   // после загрузки всегда есть активное окно
 
+    // Ссылки #/… открывают окна, а не перезагружают «страницу»
+    document.addEventListener('click', function (e) {
+      const a = e.target.closest('a[href^="#/"]');
+      if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      go(a.getAttribute('href'));
+    });
+    window.addEventListener('hashchange', function () { go(location.hash); });
+    ['topic-closed', 'topic-fixed', 'practice-goal', 'progress-changed'].forEach(function (ev) {
+      window.addEventListener(ev, function () { Plan.refresh(); WM.refreshLive(); });
+    });
     window.addEventListener('offline', function () { UI.toast('No internet: videos won\'t load, everything else works.'); });
   }
 
-  window.App = { start, crumbs, route };
+  window.App = { start, go, launchers, topicPath: function (tp) { return Term.topicPath(tp); } };
 })();

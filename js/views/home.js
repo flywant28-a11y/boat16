@@ -121,8 +121,8 @@
   function render(view) {
     view.classList.add('dash');
     view.appendChild(el('header', 'dash-head',
-      '<div class="eyebrow">courses</div><h1 class="page-title">Courses</h1>' +
-      '<p class="page-lead">OGE exam · social studies and math: notes, videos, walkthroughs and unlimited practice.</p>'));
+      '<h1 class="page-title">courses</h1>' +
+      '<p class="page-lead">OGE · social studies and math: notes, videos, walkthroughs and unlimited practice.</p>'));
     view.appendChild(today());
     view.appendChild(stats());
     view.appendChild(CalendarView.module());

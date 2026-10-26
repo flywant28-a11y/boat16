@@ -48,7 +48,8 @@
           const n = Progress.importJSON(text);
           Bank.reload();
           UI.toast('Topics imported: ' + n + '.', { kind: 'ok' });
-          location.hash = '#/courses';
+          window.dispatchEvent(new CustomEvent('progress-changed'));
+          App.go('#/courses');
         } catch (e) { UI.toast('Failed: ' + e.message); }
       });
     });
@@ -59,7 +60,8 @@
       Progress.resetAll();
       Bank.reload();
       UI.toast('Progress has been reset.');
-      location.hash = '#/courses';
+      window.dispatchEvent(new CustomEvent('progress-changed'));
+      App.go('#/courses');
     }));
     p.b.appendChild(row);
     view.appendChild(p.m);
@@ -67,12 +69,12 @@
     /* ---------- О сайте ---------- */
     const a = mod('about', 'v' + BOAT.version);
     a.b.innerHTML =
-      '<p>EcoPlant Courses — OGE exam prep in social studies and math. Each topic goes <b>video → notes → review → practice</b>, then reviews after 3 and 7 days. Every 15 minutes of practice — an optional quiz on mastered topics.</p>' +
+      '<p>boat16 — OGE exam prep in social studies and math. Each topic goes <b>video → notes → review → practice</b>, then reviews after 3 and 7 days. Every 15 minutes of practice — an optional quiz on mastered topics.</p>' +
       '<ul class="credits">' +
       '<li>Notes and tasks — materials from the old site: Umschool cheat sheets, the open FIPI task bank.</li>' +
       '<li>Walkthroughs — FIPI demo exams 2026–2027 (fipi.ru).</li>' +
       '<li>Videos — Danir Baev (<a href="' + VIDEO_AUTHORS.math.channel + '" target="_blank" rel="noopener">YouTube</a>) and Ravil Kandinsky (<a href="' + VIDEO_AUTHORS.social.channel + '" target="_blank" rel="noopener">YouTube</a>, <a href="' + MATERIALS.channel + '" target="_blank" rel="noopener">Telegram</a>), Umschool online school.</li>' +
-      '<li>Formulas — KaTeX, fonts — Manrope and JetBrains Mono (OFL). Search, articles and AI — EcoPlant.</li>' +
+      '<li>Formulas — KaTeX, font — JetBrains Mono (OFL). Wallpapers are drawn in code.</li>' +
       '</ul>';
     view.appendChild(a.m);
   }

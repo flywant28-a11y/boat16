@@ -40,7 +40,7 @@
 
     /* ---------- Шапка ---------- */
     const head = el('div', 'topic-head');
-    head.appendChild(el('div', 'kicker', esc(Subjects.get(subj).dir) + '/' + esc(topic.id) + ' · topic ' + String(topic.num).padStart(2, '0') + ' · ' + esc(topic.section)));
+    head.appendChild(el('div', 'kicker', '~/' + esc(Term.topicPath(topic)) + ' <span class="sep">·</span> ' + esc(topic.section)));
     head.appendChild(el('h1', 'topic-title', esc(topic.title)));
     const statusLine = el('div', 'status-line');
     head.appendChild(statusLine);
@@ -86,7 +86,8 @@
     view.appendChild(panel);
 
     function open(name) {
-      Timer.stop();
+      const run = Timer.state();
+      if (run && run.id === topic.id) Timer.stop();
       current = name;
       Store.set('tab:' + topic.id, name);
       history.replaceState(null, '', '#/t/' + topic.id + '/' + name);
@@ -103,35 +104,38 @@
       else Practice.mount(panel, topic, paintStatus);
       const i = tabs.indexOf(name);
       if (name !== 'practice' && tabs[i + 1]) {
-        const nx = UI.button('btn next-tab', 'next: ' + TAB_NAMES[tabs[i + 1]] + ' →', function () { open(tabs[i + 1]); window.scrollTo({ top: head.offsetTop, behavior: 'smooth' }); });
+        const nx = UI.button('btn next-tab', 'next: ' + TAB_NAMES[tabs[i + 1]], function () { open(tabs[i + 1]); bar.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
         panel.appendChild(nx);
       }
       Text.render(panel);
     }
 
+    // Клавиши 1–4 — только в активном окне этой темы
     document.addEventListener('keydown', function onKey(e) {
-      if (view._screen !== token) { document.removeEventListener('keydown', onKey); return; }
-      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (view._screen !== token || !document.body.contains(view)) { document.removeEventListener('keydown', onKey); return; }
+      if (!WM.isFocused(view) || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
       const n = parseInt(e.key, 10);
-      if (n >= 1 && n <= tabs.length && document.querySelector('.overlay') === null) open(tabs[n - 1]);
+      if (n >= 1 && n <= tabs.length) open(tabs[n - 1]);
     });
+    view._openTab = function (name) { if (tabs.indexOf(name) !== -1) open(name); };
     window.addEventListener('topic-closed', function onClosed(e) {
-      if (view._screen !== token) { window.removeEventListener('topic-closed', onClosed); return; }
+      if (view._screen !== token || !document.body.contains(view)) { window.removeEventListener('topic-closed', onClosed); return; }
       if (e.detail.id === topic.id) paintStatus();
     });
 
     /* ---------- Низ: соседние темы и сброс ---------- */
     const foot = el('div', 'topic-foot');
     const prev = found.list[found.index - 1], next = found.list[found.index + 1];
-    foot.appendChild(prev ? link(prev, '← ') : el('span'));
+    foot.appendChild(prev ? link(prev, '‹ ') : el('span'));
     foot.appendChild(UI.button('link-btn danger', 'reset topic progress', function () {
       if (!confirm('Reset progress for “' + topic.title + '”? The “studied” mark, reviews, practice minutes and attempts will be deleted.')) return;
       Timer.stop();
       Progress.resetTopic(topic.id);
       UI.toast('Topic progress reset.');
-      App.route();
+      WM.rerenderFor(view);
+      window.dispatchEvent(new CustomEvent('progress-changed'));
     }));
-    foot.appendChild(next ? link(next, '', ' →') : el('span'));
+    foot.appendChild(next ? link(next, '', ' ›') : el('span'));
     view.appendChild(foot);
 
     open(current);
