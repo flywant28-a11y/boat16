@@ -5,6 +5,8 @@
    Один шрифт — JetBrains Mono. Палитра — под [data-theme=…]:
    окна, текст и 16 цветов терминала (--c0…--c15) меняются вместе с обоями.
    Рамки модулей — как в btop: ┌─ имя ──── мета ─┐.
+   «Стекло» окон и бара — заранее размытые обои (--wall-blur из js/themes.js),
+   а не backdrop-filter: так не нужно размывать фон на каждом кадре.
    ========================================================= */
 @font-face { font-family: 'JetBrains Mono'; font-weight: 400; font-display: swap; src: url(../fonts/jbm-latin-400.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'JetBrains Mono'; font-weight: 600; font-display: swap; src: url(../fonts/jbm-latin-600.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
@@ -59,6 +61,17 @@
   --c8: #4D6A61; --c9: #F7B2B4; --c10: #C3EDBD; --c11: #F8E2AE; --c12: #B3DAF5; --c13: #E2CAF4; --c14: #B4EED6; --c15: #F3FAF6;
   --petal: #FFFFFF;
 }
+[data-theme="arch"] {
+  --win: rgba(22, 25, 30, .93); --win-solid: #16191E; --bar: rgba(13, 15, 18, .96); --title: rgba(0, 0, 0, .32);
+  --fg: #D3D7DE; --fg-2: #A9B0BB; --muted: #7B8491; --dim: #525A66;
+  --line: rgba(211, 215, 222, .10); --line-2: rgba(211, 215, 222, .20); --raise: rgba(211, 215, 222, .04); --raise-2: rgba(211, 215, 222, .08);
+  --accent: #1793D1; --accent-2: #56B6C2; --accent-ink: #0D0F12;
+  --ok: #98C379; --bad: #E06C75; --warn: #E5C07B; --info: #61AFEF;
+  --c0: #0D0F12; --c1: #E06C75; --c2: #98C379; --c3: #E5C07B; --c4: #61AFEF; --c5: #C678DD; --c6: #56B6C2; --c7: #ABB2BF;
+  --c8: #3E4451; --c9: #EF8891; --c10: #B5D99C; --c11: #F0D197; --c12: #8CC8F5; --c13: #D7A1E7; --c14: #7FCAD3; --c15: #E6E9EE;
+  --petal: transparent;
+}
+[data-theme="arch"] .petals { display: none; }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -85,8 +98,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .wall { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .wall-img, .wall-art { position: absolute; inset: 0; background: center / cover no-repeat; }
 .wall-art { background-position: right bottom; background-size: auto 92%; }
+.petals { position: absolute; inset: 0; contain: strict; }
 .petal {
-  position: absolute; top: -4vh; left: var(--x);
+  position: absolute; top: -4vh; left: var(--x); will-change: transform;
   width: 12px; height: 9px; border-radius: 9px 1px 9px 1px;
   background: var(--petal); opacity: .85;
   animation: fall var(--d) linear var(--w) infinite;
@@ -104,8 +118,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   height: var(--bar-h);
   display: flex; align-items: stretch; justify-content: space-between; gap: 12px;
   padding: 0 6px;
-  background: var(--bar);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  background: linear-gradient(var(--bar), var(--bar)), var(--wall-blur, none) 0 0 / 100vw 100vh no-repeat;
   font-size: 12px; line-height: var(--bar-h); color: var(--fg-2);
   white-space: nowrap;
 }
@@ -138,12 +151,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: absolute;
   display: flex; flex-direction: column;
   min-width: 0;
-  background: var(--win);
-  -webkit-backdrop-filter: blur(18px) saturate(1.15); backdrop-filter: blur(18px) saturate(1.15);
+  isolation: isolate;
   border: 1px solid var(--line-2);
   box-shadow: 0 18px 50px rgba(0, 0, 0, .32);
   animation: win-in .14s ease-out;
 }
+/* стекло: под окном — размытые обои, выровненные по экрану (--wx, --wy из js/wm.js) */
+.win::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--win), var(--win)), var(--wall-blur, none) no-repeat;
+  background-size: auto, 100vw 100vh;
+  background-position: 0 0, calc(-1px - var(--wx, 0px)) calc(-1px - var(--bar-h) - var(--wy, 0px));
+}
+.win.max::before { background-position: 0 0, 0 calc(-1 * var(--bar-h)); }
 @keyframes win-in { from { opacity: 0; transform: scale(.975); } to { opacity: 1; transform: none; } }
 .win.on { border-color: var(--accent); }
 .win.away { display: none; }
@@ -242,7 +262,7 @@ body.dragging iframe { pointer-events: none; }
   font: 600 13px/1.2 var(--mono);
   border: 1px solid var(--line-2); border-radius: 2px;
   background: var(--raise); color: var(--fg);
-  cursor: pointer; text-decoration: none !important;
+  cursor: pointer; text-decoration: none !important; white-space: nowrap;
 }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn:active { transform: translateY(1px); }
@@ -643,6 +663,81 @@ a.bt-tr:hover * { color: inherit; }
 .bt-tr.st-fixed .s { color: var(--accent); }
 .bt-tr .s { color: var(--fg-2); }
 
+/* ---------- Jaba: редактор, вывод, значки ---------- */
+.dicons { position: absolute; top: 18px; right: 18px; z-index: 0; display: grid; gap: 14px; }
+.dicon {
+  display: grid; justify-items: center; gap: 4px; width: 84px; padding: 10px 4px 8px;
+  border: 1px solid transparent; background: none; cursor: pointer;
+  color: var(--c2); font: 12px var(--mono);
+}
+.dicon span { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .7); }
+.dicon:hover, .dicon:focus-visible { background: rgba(0, 0, 0, .22); border-color: var(--line-2); }
+.bm-jaba { display: inline-flex; align-items: center; gap: 5px; }
+.bm-jaba .frog, .jb-logo .frog { color: var(--c2); }
+.jk { color: var(--accent); font-weight: 600; }
+.js { color: var(--ok); }
+.ji { color: var(--warn); }
+.jn { color: var(--c5); }
+.jc { color: var(--dim); font-style: italic; }
+.jf { color: var(--accent-2); }
+.jcode { padding: 6px 10px; border-left: 2px solid var(--line-2); }
+
+.app.app-jaba { padding: 0; height: 100%; display: flex; flex-direction: column; position: relative; }
+.jb-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--title); }
+.jb-logo { display: grid; place-items: center; width: 22px; }
+.jb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 6px; border: 1px solid transparent; background: none; color: var(--fg-2); font: 12px var(--mono); cursor: text; }
+.jb-name:hover { border-color: var(--line-2); color: var(--fg); }
+.jb-rename { width: 18ch; padding: 2px 6px !important; font-size: 12px !important; }
+.jb-sp { flex: 1; }
+.jb-pop { position: absolute; top: 44px; right: 10px; z-index: 5; width: min(300px, calc(100% - 20px)); max-height: 60%; overflow: auto; padding: 6px 0; background: var(--win-solid); border: 1px solid var(--accent); box-shadow: 0 16px 40px rgba(0, 0, 0, .4); }
+.jb-pop-h { padding: 6px 12px 2px; font-size: 11px; color: var(--muted); }
+.jb-pop-r { display: flex; }
+.jb-pop-r.on .jb-pop-f { color: var(--accent); }
+.jb-pop-f { flex: 1; text-align: left; padding: 4px 12px; border: 0; background: none; color: var(--fg); font: 13px var(--mono); cursor: pointer; }
+.jb-pop-f:hover, .jb-pop-x:hover { background: var(--raise-2); }
+.jb-pop-x { width: 30px; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.jb-pop-x:hover { color: var(--bad); }
+.jb-lesson { flex: none; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--raise); font-size: 13px; line-height: 1.55; max-height: 40%; overflow: auto; }
+.jb-lesson p { margin: 6px 0; color: var(--fg-2); max-width: 78ch; }
+.jb-lesson code { color: var(--accent); background: var(--raise-2); padding: 0 4px; }
+.jb-lh { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.jb-ln { color: var(--muted); font-size: 12px; }
+.jb-lnav { margin-left: auto; display: flex; gap: 14px; }
+.jb-lnav .link-btn:disabled { opacity: .35; cursor: default; }
+.jb-task span { color: var(--warn); }
+.jb-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+.jb-ed { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; border-right: 1px solid var(--line); }
+.jb-gut { flex: none; width: 4.5ch; padding: 10px 6px 10px 0; text-align: right; color: var(--dim); font: 13px/1.55 var(--mono); user-select: none; -webkit-user-select: none; will-change: transform; }
+.jb-gut span { display: block; }
+.jb-gut span.err { color: var(--accent-ink); background: var(--bad); }
+.jb-code { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+.jb-hl, .jb-ta {
+  margin: 0; padding: 10px 12px; border: 0;
+  font: 13px/1.55 var(--mono); tab-size: 2; white-space: pre; letter-spacing: 0; word-spacing: 0;
+}
+.jb-hl { position: absolute; top: 0; left: 0; min-width: 100%; color: var(--fg); pointer-events: none; will-change: transform; }
+.jb-ta {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  resize: none; overflow: auto; background: transparent; color: transparent; caret-color: var(--accent);
+  outline: none; -webkit-text-fill-color: transparent;
+}
+.jb-ta::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); -webkit-text-fill-color: transparent; }
+.jb-out { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: rgba(0, 0, 0, .14); }
+.jb-out-head { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 4px 12px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+.jb-log { flex: 1; overflow: auto; padding: 8px 12px 14px; font-size: 13px; line-height: 1.5; }
+.jl { white-space: pre-wrap; overflow-wrap: anywhere; }
+.jl-i { color: var(--dim); }
+.jl-e { color: var(--bad); }
+.jl-ask { display: flex; align-items: baseline; gap: 1ch; flex-wrap: wrap; }
+.jl-q { color: var(--accent-2); }
+.jl-a { color: var(--fg); }
+.term input.jl-in, .jb-log input.jl-in { flex: 1; min-width: 12ch; padding: 0 4px; border: 0; border-bottom: 1px solid var(--accent); border-radius: 0; background: transparent; font: inherit; color: var(--fg); }
+@container (max-width: 640px) {
+  .jb-main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .jb-ed { border-right: 0; border-bottom: 1px solid var(--line); }
+  .jb-bar .btn-ghost { padding: 3px 7px; }
+}
+
 /* ---------- Лаунчер (rofi) ---------- */
 .rofi { position: fixed; inset: 0; z-index: 40; display: grid; justify-items: center; align-items: start; padding: 14vh 16px 16px; background: rgba(0, 0, 0, .2); }
 .rofi-box { width: min(640px, 100%); background: var(--win-solid); border: 2px solid var(--accent); box-shadow: 0 24px 70px rgba(0, 0, 0, .45); }
@@ -720,12 +815,13 @@ a.bt-tr:hover * { color: inherit; }
 /* ---------- Телефон: одно окно на весь экран ---------- */
 @media (max-width: 760px) {
   .win { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; border-width: 0; box-shadow: none; animation: none; }
+  .win::before { background-position: 0 0, 0 calc(-1 * var(--bar-h)); }
   .win:not(.on) { display: none; }
   .rz { display: none; }
   .win-bar { cursor: default; height: 30px; }
   .win-btns .win-btn:first-child { display: none; }
   .win-btn { width: 40px; height: 30px; font-size: 16px; }
-  .b-ws, .bm-streak, .bm-theme, .bm-oge { display: none; }
+  .b-ws, .bm-streak, .bm-theme, .bm-oge, .bm-jaba span { display: none; }
   .bm-clock { font-size: 11px; }
   .b-title { padding: 0 6px; }
   .app-term { font-size: 12.5px; }

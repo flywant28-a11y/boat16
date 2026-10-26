@@ -5,6 +5,10 @@
    Палитра окон — в css/app.css под [data-theme=…], здесь — только сцена.
    Тема хранится в Store 'theme'. Место под арт персонажа — .wall-art
    (Store 'wallart' — адрес картинки), пока пустое.
+   Скорость: SVG-сцена один раз рисуется в картинку под размер экрана,
+   рядом — её размытая копия (--wall-blur). Окна подкладывают её под себя
+   вместо настоящего backdrop-filter: «стекло» почти то же, но браузеру
+   не нужно размывать фон заново на каждом кадре.
    ========================================================= */
 (function () {
   'use strict';
@@ -35,9 +39,13 @@
       sky: ['#93D9C8', '#C6EEE1', '#F3FBF1'], sun: '#FFFBE6', sunX: 1260, sunY: 150, sunR: 54, glow: .5,
       clouds: .6, cloud: '#FFFFFF', hill: ['#A4D7C2', '#84C2AB'], trunk: '#4A5C51',
       bloom: ['#FFFFFF', '#E6F6EA', '#BEE2CB', '#84BEA0'], stars: 0, lanterns: false
+    },
+    arch: {
+      label: 'arch', note: 'black, like a clean Arch install', grid: true,
+      sky: ['#0D0F12', '#0D0F12', '#0D0F12']
     }
   };
-  const ORDER = ['sakura', 'dusk', 'night', 'mint'];
+  const ORDER = ['sakura', 'dusk', 'night', 'mint', 'arch'];
 
   // Один и тот же «случай» каждый раз: сцена не прыгает между перезагрузками
   function rng(seed) {
@@ -65,7 +73,16 @@
     [1290, 875, 150], [1530, 860, 145], [0, 880, 150], [260, 880, 140]
   ];
 
+  // Чёрная тема: почти чёрный фон, мягкое пятно света и точечная сетка
+  function gridScene() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice">' +
+      '<defs><radialGradient id="v" cx=".5" cy=".42" r=".75"><stop offset="0" stop-color="#151A21"/><stop offset="1" stop-color="#0A0C0F"/></radialGradient>' +
+      '<pattern id="d" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="12" cy="12" r="1.1" fill="#C9D1DC" fill-opacity=".09"/></pattern></defs>' +
+      '<rect width="' + W + '" height="' + H + '" fill="url(#v)"/><rect width="' + W + '" height="' + H + '" fill="url(#d)"/></svg>';
+  }
+
   function scene(t) {
+    if (t.grid) return gridScene();
     const r = rng(16);
     let s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice">' +
       '<defs><linearGradient id="s" x1="0" y1="0" x2=".25" y2="1">' +
@@ -152,14 +169,70 @@
 
   function current() { const t = Store.get('theme', 'sakura'); return THEMES[t] ? t : 'sakura'; }
 
+  /* ---------- Обои в картинку + размытая копия ---------- */
+  let drawn = '', job = 0;
+  const urls = [];
+
+  function toUrl(canvas) {
+    return new Promise(function (done) {
+      if (canvas.toBlob) canvas.toBlob(function (b) { done(b ? URL.createObjectURL(b) : canvas.toDataURL()); }, 'image/png');
+      else done(canvas.toDataURL());
+    });
+  }
+
+  // Рисует сцену под размер окна браузера: обои и размытый фон для «стекла»
+  function paint(name) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const key = name + ':' + vw + 'x' + vh;
+    if (key === drawn || !wall) return;
+    const my = ++job;
+    if (!cache[name]) cache[name] = 'data:image/svg+xml,' + encodeURIComponent(scene(THEMES[name]));
+    const img = new Image();
+    img.onload = function () {
+      if (my !== job) return;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const cw = Math.min(3200, Math.round(vw * dpr)), ch = Math.round(cw * vh / vw);
+      const full = document.createElement('canvas');
+      full.width = cw; full.height = ch;
+      const ctx = full.getContext('2d');
+      // как background-size: cover по центру
+      const k = Math.max(cw / W, ch / H);
+      ctx.drawImage(img, (cw - W * k) / 2, (ch - H * k) / 2, W * k, H * k);
+      // Размытие: уменьшаем в несколько шагов — браузер растянет обратно мягко
+      let src = full;
+      [4, 4].forEach(function (step) {
+        const c = document.createElement('canvas');
+        c.width = Math.max(8, Math.round(src.width / step));
+        c.height = Math.max(8, Math.round(src.height / step));
+        const x = c.getContext('2d');
+        x.imageSmoothingQuality = 'high';
+        x.drawImage(src, 0, 0, c.width, c.height);
+        src = c;
+      });
+      Promise.all([toUrl(full), toUrl(src)]).then(function (pair) {
+        if (my !== job) { pair.forEach(revoke); return; }
+        wall.querySelector('.wall-img').style.backgroundImage = 'url("' + pair[0] + '")';
+        document.documentElement.style.setProperty('--wall-blur', 'url("' + pair[1] + '")');
+        urls.splice(0).forEach(revoke);
+        urls.push(pair[0], pair[1]);
+        drawn = key;
+      });
+    };
+    img.src = cache[name];
+  }
+  function revoke(u) { if (u && u.indexOf('blob:') === 0) URL.revokeObjectURL(u); }
+
+  let resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { paint(current()); }, 300);
+  });
+
   function set(name, quiet) {
     if (!THEMES[name]) return false;
     Store.set('theme', name);
     document.documentElement.setAttribute('data-theme', name);
-    if (wall) {
-      if (!cache[name]) cache[name] = 'url("data:image/svg+xml,' + encodeURIComponent(scene(THEMES[name])) + '")';
-      wall.querySelector('.wall-img').style.backgroundImage = cache[name];
-    }
+    paint(name);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = THEMES[name].sky[0];
     if (!quiet) window.dispatchEvent(new CustomEvent('theme-changed', { detail: { name } }));

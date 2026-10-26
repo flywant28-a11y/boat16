@@ -22,6 +22,12 @@
     apps = registry;
     root.appendChild(buildBar());
     desk = el('main', 'desk');
+    // Значок на рабочем столе — под окнами
+    const icons = el('div', 'dicons');
+    const jaba = UI.button('dicon', JabaView.FROG.replace('width="15" height="15"', 'width="40" height="40"') + '<span>jaba</span>', function () { App.go('#/jaba'); });
+    jaba.title = 'Jaba — our mini programming language';
+    icons.appendChild(jaba);
+    desk.appendChild(icons);
     root.appendChild(desk);
     keys();
     window.addEventListener('resize', function () { wins.forEach(function (w) { clamp(w); apply(w); }); });
@@ -82,6 +88,8 @@
     const s = w.el.style;
     s.left = Math.round(w.x) + 'px';
     s.top = Math.round(w.y) + 'px';
+    s.setProperty('--wx', Math.round(w.x) + 'px');
+    s.setProperty('--wy', Math.round(w.y) + 'px');
     s.width = Math.round(w.w) + 'px';
     s.height = Math.round(w.h) + 'px';
     w.el.classList.toggle('max', w.max);
@@ -251,9 +259,16 @@
     });
   }
 
-  function track(ev, move) {
+  // Движение мыши — не чаще кадра: окно двигается один раз за кадр
+  function track(ev, handler) {
     document.body.classList.add('dragging');
+    let last = null, frame = 0;
+    function move(e) {
+      last = e;
+      if (!frame) frame = requestAnimationFrame(function () { frame = 0; if (last) handler(last); });
+    }
     function up() {
+      if (frame) { cancelAnimationFrame(frame); frame = 0; if (last) handler(last); }
       document.body.classList.remove('dragging');
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -306,6 +321,7 @@
       '<div class="bar-l"><button type="button" class="b-launch" aria-label="Launcher (Alt+D)" title="Launcher (Alt+D)">' + SAIL + '</button>' +
       '<nav class="b-ws" aria-label="Workspaces"></nav><button type="button" class="b-title" title="Switch window"></button></div>' +
       '<div class="bar-r">' +
+      '<button type="button" class="bm bm-jaba" title="Jaba — our mini programming language">' + JabaView.FROG + '<span>jaba</span></button>' +
       '<button type="button" class="bm bm-timer" hidden></button>' +
       '<button type="button" class="bm bm-due" title="Reviews due today"></button>' +
       '<button type="button" class="bm bm-oge" title="Days until the OGE"></button>' +
@@ -318,6 +334,7 @@
     bar.querySelector('.bm-due').addEventListener('click', function () { App.go('#/courses'); });
     bar.querySelector('.bm-oge').addEventListener('click', function () { App.go('#/calendar'); });
     bar.querySelector('.bm-theme').addEventListener('click', Themes.next);
+    bar.querySelector('.bm-jaba').addEventListener('click', function () { App.go('#/jaba'); });
     return bar;
   }
 

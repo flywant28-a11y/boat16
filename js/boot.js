@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '3.0.1';
+  const VERSION = '3.1.0';
 
   // Порядок важен: данные → ядро → модули → экраны → App
   const SCRIPTS = [
@@ -13,9 +13,9 @@
     'vendor/katex/katex.min.js', 'vendor/katex/contrib/auto-render.min.js',
     'js/progress.js', 'js/bank.js', 'js/text.js', 'js/timer.js', 'js/files.js',
     'js/quiz.js', 'js/practice.js', 'js/popquiz.js',
-    'js/plan.js', 'js/themes.js', 'js/term.js', 'js/wm.js',
+    'js/plan.js', 'js/themes.js', 'js/jaba.js', 'js/term.js', 'js/wm.js',
     'js/views/calendar.js', 'js/views/home.js', 'js/views/topic.js', 'js/views/materials.js',
-    'js/views/settings.js', 'js/views/stats.js',
+    'js/views/settings.js', 'js/views/stats.js', 'js/views/jaba.js',
     'js/app.js'
   ];
 
@@ -35,19 +35,20 @@
     });
   }
 
-  load(0);
-
-  function load(i) {
-    if (i >= SCRIPTS.length) {
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { App.start(); });
-      else App.start();
-      return;
-    }
+  // Все файлы качаются параллельно, а выполняются по порядку (async = false)
+  let failed = false;
+  SCRIPTS.forEach(function (src, i) {
     const s = document.createElement('script');
-    s.src = SCRIPTS[i] + '?v=' + VERSION;   // новая VERSION — браузер берёт свежие файлы, а не кеш
-    s.onload = function () { load(i + 1); };
-    s.onerror = function () { fail(SCRIPTS[i]); };
+    s.src = src + '?v=' + VERSION;   // новая VERSION — браузер берёт свежие файлы, а не кеш
+    s.async = false;
+    s.onerror = function () { if (!failed) { failed = true; fail(src); } };
+    if (i === SCRIPTS.length - 1) s.onload = function () { if (!failed) ready(); };
     document.head.appendChild(s);
+  });
+
+  function ready() {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { App.start(); });
+    else App.start();
   }
 
   function fail(src) {

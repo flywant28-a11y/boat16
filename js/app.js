@@ -9,6 +9,7 @@
      #/stats               — монитор прогресса (btop)
      #/materials           — материалы Равиля из Telegram (ranger)
      #/settings            — прогресс, о сайте
+     #/jaba[/файл]         — редактор языка Jaba (js/jaba.js, js/views/jaba.js)
    ========================================================= */
 (function () {
   'use strict';
@@ -68,6 +69,16 @@
       render: function (box) { MaterialsView.render(box); },
       hash: function () { return '#/materials'; }
     },
+    jaba: {
+      title: function (arg) { return 'jaba ~/code/' + ((arg && arg.file) || ''); },
+      size: function (d) { return [Math.min(1100, d.w * .74), d.h * .88]; },
+      render: function (box, arg, w) { JabaView.render(box, arg, w); },
+      reuse: function (w, arg) { if (arg && arg.file && arg.file !== (w.arg && w.arg.file)) { w.arg = arg; WM.rerender(w); } },
+      hash: function (arg) { return '#/jaba' + (arg && arg.file ? '/' + encodeURIComponent(arg.file) : ''); },
+      onFocus: function (w) { if (w.focusEditor) w.focusEditor(); },
+      onClose: function (w) { if (w.onCloseApp) w.onCloseApp(); },
+      saveArg: function (w) { return { file: w.arg && w.arg.file }; }
+    },
     settings: {
       title: function () { return 'settings'; },
       size: function (d) { return [Math.min(720, d.w * .52), Math.min(620, d.h * .8)]; },
@@ -86,6 +97,7 @@
       { name: 'ranger', note: 'materials from Telegram', run: function () { go('#/materials'); } },
       { name: 'settings', note: 'export, import, reset progress', run: function () { go('#/settings'); } },
       { name: 'pop-quiz', note: '10 questions on mastered topics', run: function () { PopQuiz.open(); } },
+      { name: 'jaba', note: 'our mini programming language, for when you\'re bored', run: function () { go('#/jaba'); } },
       { name: 'theme', note: 'next wallpaper: ' + Themes.ORDER.join(', '), run: Themes.next }
     ];
   }
@@ -98,6 +110,7 @@
     const page = parts[0];
     if (page === 't' && parts[1] && Subjects.find(parts[1])) return WM.open('topic', { id: parts[1], tab: parts[2] || null });
     if (page === 'calendar') return WM.open('calendar', { month: parts[1] || null });
+    if (page === 'jaba') return WM.open('jaba', { file: parts.slice(1).join('/') || null });
     if (APPS[page] && page !== 'term' && page !== 'topic') return WM.open(page, {});
     const f = WM.focused();
     if (f && f.app === 'term') return f;

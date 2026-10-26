@@ -4,6 +4,7 @@
      ~/social/NN-<id>   темы обществознания (54)
      ~/math/NN-<id>     темы математики (38, без «m-» в имени)
      ~/materials/       материалы из Telegram (открывает окно)
+     ~/code/*.jaba      программы на Jaba (js/jaba.js), ~/code/examples — примеры
      ~/README.md, ~/.zshrc
    Команды открывают окна (learn, calendar, stats…) или печатают ответ
    (ls, today, cal, plan, grep…). Всё напечатанное можно нажимать:
@@ -54,7 +55,8 @@
 
   // Путь — массив: [] — домашняя папка, ['social'], ['social', '03-sfery']
   function resolve(cwd, p) {
-    if (!p || p === '~') return [];
+    if (p === '~') return [];
+    if (!p) return cwd.slice();   // пусто — текущая папка
     let parts;
     if (p[0] === '/') {
       const home = '/home/' + USER;
@@ -77,6 +79,17 @@
     const top = parts[0].replace(/\/$/, '');
     if (parts.length === 1 && FILES[top] !== undefined) return { type: 'file', name: top, text: FILES[top] };
     if (top === 'materials') return parts.length === 1 ? { type: 'dir', name: 'materials' } : null;
+    if (top === 'code') {
+      if (parts.length === 1) return { type: 'dir', name: 'code', code: '' };
+      if (parts[1] === 'examples') {
+        if (parts.length === 2) return { type: 'dir', name: 'examples', code: 'examples/' };
+        const ex = Jaba.files.read('examples/' + parts[2]) !== null ? parts[2] : Jaba.files.clean(parts[2]);
+        return parts.length === 3 && Jaba.files.read('examples/' + ex) !== null ? { type: 'jaba', file: 'examples/' + ex, text: Jaba.files.read('examples/' + ex) } : null;
+      }
+      if (parts.length > 2) return null;
+      const f = Jaba.files.read(parts[1]) !== null ? parts[1] : Jaba.files.clean(parts[1]);
+      return Jaba.files.read(f) !== null ? { type: 'jaba', file: f, text: Jaba.files.read(f) } : null;
+    }
     if (top !== 'social' && top !== 'math') return null;
     if (parts.length === 1) return { type: 'dir', name: top, subject: top };
     if (parts.length > 2) return null;
@@ -87,7 +100,9 @@
   function children(parts) {
     const n = node(parts);
     if (!n || n.type !== 'dir') return [];
-    if (!parts.length) return ['social/', 'math/', 'materials/', 'README.md', '.zshrc'];
+    if (!parts.length) return ['social/', 'math/', 'materials/', 'code/', 'README.md', '.zshrc'];
+    if (n.code === '') return Jaba.files.list().concat(['examples/']);
+    if (n.code === 'examples/') return Object.keys(Jaba.EXAMPLES);
     if (n.subject) return Subjects.get(n.subject).topics.map(fname);
     return [];
   }
@@ -211,7 +226,7 @@
     cd: {
       group: 'learning', usage: 'cd <dir>', desc: 'go to social, math or materials',
       run: function (t, args) {
-        let p = args[0];
+        let p = args[0] || '~';
         if (p === '-') p = t.oldCwd ? pathText(t.oldCwd) : '~';
         const parts = resolve(t.cwd, p);
         const n = node(parts);
@@ -235,6 +250,7 @@
         if (!args.length) return t.err('cat: missing file name');
         const n = node(resolve(t.cwd, args[0]));
         if (n && n.type === 'file') return t.print('<pre class="cat">' + esc(n.text) + '</pre>');
+        if (n && n.type === 'jaba') return t.print('<pre class="cat jcode">' + Jaba.highlight(n.text) + '</pre>');
         if (n && n.type === 'dir') return t.err('cat: ' + args[0] + ': is a directory');
         openTopic(t, args, 'notes');
       }
@@ -306,7 +322,42 @@
     reboot: { usage: 'reboot', desc: 'reload the page', run: function () { location.reload(); } },
     sudo: { usage: 'sudo', desc: '', run: function (t) { t.err(USER + ' is not in the sudoers file. This incident will be reported.'); } },
     pacman: { usage: 'pacman', desc: '', run: function (t) { t.err('error: you cannot perform this operation unless you are root.'); } },
-    rm: { usage: 'rm', desc: '', run: function (t) { t.err('rm: progress is precious. To start over, use settings → reset everything.'); } }
+    rm: {
+      usage: 'rm <file>', desc: 'delete one of your Jaba programs in ~/code',
+      run: function (t, args) {
+        const target = args.filter(function (a) { return a[0] !== '-'; })[0];
+        const n = target && node(resolve(t.cwd, target));
+        if (n && n.type === 'jaba') {
+          if (/^examples\//.test(n.file)) return t.err('rm: examples are read-only');
+          Jaba.files.remove(n.file);
+          return t.print('<span class="dim">removed</span> ~/code/' + esc(n.file));
+        }
+        t.err('rm: you can only delete your own programs in ~/code. Progress is precious — to start over, use settings → reset everything.');
+      }
+    },
+    jaba: {
+      group: 'fun', usage: 'jaba [file]', desc: 'Jaba, our mini programming language — opens the editor',
+      run: function (t, args, raw) {
+        const sub = args[0];
+        if (!sub) return App.go('#/jaba');
+        if (sub === 'lessons') { Store.set('jaba:lessons-open', true); return App.go('#/jaba'); }
+        if (sub === 'new') {
+          const f = Jaba.files.free(Jaba.files.clean(args[1] || 'untitled'));
+          Jaba.files.write(f, '# ' + f + '\nsay "hi"\n');
+          t.print('<span class="dim">created</span> ~/code/' + esc(f));
+          return App.go('#/jaba/' + encodeURIComponent(f));
+        }
+        if (sub === 'run') {
+          const n = args[1] && (node(resolve(t.cwd, args[1])) || node(['code', args[1]]));
+          if (!n || n.type !== 'jaba') return t.err('jaba run: no program called ' + (args[1] || '?') + ' — try: ls code');
+          return t.runJaba(n.text, n.file);
+        }
+        const n = node(resolve(t.cwd, sub)) || node(['code', sub]) || node(['code', 'examples', sub]);
+        if (n && n.type === 'jaba') return App.go('#/jaba/' + encodeURIComponent(n.file));
+        if (args.length === 1 && /\.jaba$/.test(sub)) return t.err('jaba: no program called ' + sub + ' — try: ls code, or jaba new ' + sub);
+        return t.runJaba(raw, null);   // одна строка кода прямо в терминале: jaba say 2 + 2
+      }
+    }
   };
   const ALIAS = { open: 'learn', less: 'learn', vim: 'learn', nvim: 'learn', btop: 'stats', htop: 'stats', top: 'stats', ranger: 'materials', cls: 'clear', fastfetch: 'neofetch', 'yay': 'pacman' };
 
@@ -327,7 +378,7 @@
 
   /* ---------- Тексты команд ---------- */
   function helpText() {
-    const groups = { learning: [], planning: [], system: [] };
+    const groups = { learning: [], planning: [], fun: [], system: [] };
     Object.keys(CMDS).forEach(function (k) { if (CMDS[k].group) groups[CMDS[k].group].push(k); });
     let html = '<div class="help"><div class="fg2">boat16 zsh — click any command to run it.</div>';
     Object.keys(groups).forEach(function (g) {
@@ -372,15 +423,25 @@
     if (!n) return t.err('ls: cannot access \'' + target + '\': No such file or directory');
     if (n.type === 'topic') return t.print(long ? longRow(n.topic) : tlink(n.topic, fname(n.topic)));
     if (n.type === 'file') return t.print(esc(n.name));
+    if (n.type === 'jaba') return t.print(run('jaba ' + n.file, n.file.replace(/^examples\//, '')));
+    if (n.code !== undefined) {
+      const names = children(parts);
+      if (!names.length) return t.print('<span class="dim">empty — create a program:</span> ' + run('jaba new hello'));
+      return t.print('<div class="cols">' + names.map(function (f) {
+        const path = n.code + f;
+        return /\/$/.test(f) ? '<button type="button" class="tr dir" data-run="ls code/' + esc(path) + '">' + esc(f) + '</button>'
+          : '<button type="button" class="tr file" data-run="jaba ' + esc(path) + '">' + esc(f) + '</button>';
+      }).join('') + '</div><div class="dim">click a file to open it · jaba run &lt;file&gt; runs it here</div>');
+    }
     if (parts[0] === 'materials') {
       return t.print(MATERIALS.groups.map(function (g) { return '<div class="row"><a class="dir" href="#/materials">' + esc(g.title.toLowerCase()) + '/</a> <span class="dim">' + g.items.length + ' files</span></div>'; }).join(''));
     }
     if (!parts.length) {
-      const items = [['social/', 'dir', 'ls social'], ['math/', 'dir', 'ls math'], ['materials/', 'dir', 'materials'], ['README.md', 'file', 'cat README.md']];
+      const items = [['social/', 'dir', 'ls social'], ['math/', 'dir', 'ls math'], ['materials/', 'dir', 'materials'], ['code/', 'dir', 'ls code'], ['README.md', 'file', 'cat README.md']];
       if (long || target === '-a') items.push(['.zshrc', 'file', 'cat .zshrc']);
       if (long) {
         return t.print(items.map(function (it) {
-          const info = it[0] === 'social/' ? Subjects.get('social').topics.length + ' topics' : it[0] === 'math/' ? Subjects.get('math').topics.length + ' topics' : it[0] === 'materials/' ? 'telegram files' : '';
+          const info = it[0] === 'social/' ? Subjects.get('social').topics.length + ' topics' : it[0] === 'math/' ? Subjects.get('math').topics.length + ' topics' : it[0] === 'materials/' ? 'telegram files' : it[0] === 'code/' ? 'jaba programs' : '';
           return '<div class="row"><span class="dim">' + (it[1] === 'dir' ? 'drwxr-xr-x' : '-rw-r--r--') + '  student </span>' + run(it[2], padEnd(it[0], 12)) + ' <span class="dim">' + info + '</span></div>';
         }).join(''));
       }
@@ -487,8 +548,10 @@
     t.input = input;
 
     function scroll() { win.body.scrollTop = win.body.scrollHeight; }
-    t.print = function (html) { out.appendChild(el('div', 'o', html)); scroll(); };
-    t.err = function (text) { out.appendChild(el('div', 'o err', esc(text))); scroll(); };
+    // Длинный вывод обрезается сверху, как буфер настоящего терминала
+    function trim() { if (out.children.length > 600) for (let i = 0; i < 150; i++) out.removeChild(out.firstChild); }
+    t.print = function (html) { out.appendChild(el('div', 'o', html)); trim(); scroll(); };
+    t.err = function (text) { out.appendChild(el('div', 'o err', esc(text))); trim(); scroll(); };
     t.clear = function () { out.innerHTML = ''; };
     function paintPrompt() { p1.innerHTML = prompt(t); }
 
@@ -504,15 +567,21 @@
         if (hist.length > HIST_MAX) hist = hist.slice(-HIST_MAX);
         Store.set('zsh_history', hist);
         hpos = hist.length;
-        text.split(/\s*(?:&&|;)\s*/).forEach(function (part) { if (part) runLine(part); });
       }
-      paintPrompt();
-      scroll();
+      // Команды по очереди: программа Jaba сначала доработает, потом следующая команда
+      const parts = text ? text.split(/\s*(?:&&|;)\s*/).filter(Boolean) : [];
+      (function step(i) {
+        if (i >= parts.length) { paintPrompt(); scroll(); return; }
+        const r = runLine(parts[i]);
+        if (r && typeof r.then === 'function') r.then(function () { step(i + 1); });
+        else step(i + 1);
+      })(0);
     }
 
     function runLine(text) {
       const args = (text.match(/"[^"]*"|'[^']*'|\S+/g) || []).map(function (a) { return a.replace(/^["']|["']$/g, ''); });
       const name = args.shift();
+      const rest = text.replace(/^\S+\s*/, '');
       const c = CMDS[ALIAS[name] || name];
       if (!c) {
         const guess = Object.keys(CMDS).concat(Object.keys(ALIAS)).map(function (k) { return [k, lev(name, k)]; }).sort(function (a, b) { return a[1] - b[1]; })[0];
@@ -521,10 +590,55 @@
         else t.print('<span class="dim">type</span> ' + run('help') + ' <span class="dim">to see every command.</span>');
         return;
       }
-      try { c.run(t, args); }
+      try { return c.run(t, args, rest); }
       catch (e) { t.err(name + ': ' + e.message); }
     }
     t.exec = exec;
+
+    // Программа Jaba прямо в терминале: строка ввода прячется, ask спрашивает в выводе, Ctrl+C — стоп
+    t.runJaba = function (src, label) {
+      line.hidden = true;
+      box.tabIndex = -1;
+      box.focus({ preventScroll: true });
+      let pending = null;
+      const host = {
+        print: function (text) { t.print(esc(text)); },
+        clear: t.clear,
+        ask: function (q) {
+          return new Promise(function (done) {
+            const row = el('div', 'o jl-ask', '<span class="jl-q">' + esc(q) + '</span>');
+            const ans = document.createElement('input');
+            ans.type = 'text';
+            ans.className = 'jl-in';
+            ans.autocomplete = 'off';
+            ans.spellcheck = false;
+            ans.setAttribute('aria-label', q || 'Answer');
+            row.appendChild(ans);
+            out.appendChild(row);
+            scroll();
+            ans.focus({ preventScroll: true });
+            function finish(v) { pending = null; ans.replaceWith(el('span', 'jl-a', esc(v))); done(v); }
+            pending = function () { finish(''); };
+            ans.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); finish(ans.value); } });
+          });
+        },
+        cancel: function () { if (pending) pending(); }
+      };
+      const ctl = Jaba.run(src, host);
+      t.jabaRun = ctl;
+      return ctl.done.then(function (r) {
+        t.jabaRun = null;
+        if (r.stopped) t.print('<span class="dim">^C — stopped</span>');
+        else if (!r.ok) t.err((label ? label + ': ' : '') + 'line ' + r.line + ': ' + r.error);
+        line.hidden = false;
+        paintPrompt();
+        scroll();
+        if (WM.focused() === win) input.focus({ preventScroll: true });
+      });
+    };
+    box.addEventListener('keydown', function (e) {
+      if (t.jabaRun && e.ctrlKey && (e.key === 'c' || e.key === 'C') && !window.getSelection().toString()) { e.preventDefault(); t.jabaRun.stop(); }
+    });
 
     // Tab: команда, затем путь, тема или имя темы оформления
     function complete() {
@@ -579,6 +693,7 @@
 
     // Клик по выводу: команда из [data-run]; по пустому месту — фокус в строку
     box.addEventListener('click', function (e) {
+      if (t.jabaRun) { const a = box.querySelector('.jl-in'); if (a && e.target !== a) a.focus({ preventScroll: true }); return; }
       const b = e.target.closest('[data-run]');
       if (b) { exec(b.getAttribute('data-run')); input.focus({ preventScroll: true }); return; }
       if (e.target.closest('a, button, input')) return;
