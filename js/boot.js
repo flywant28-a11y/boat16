@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '3.0.0';
+  const VERSION = '3.0.1';
 
   // Порядок важен: данные → ядро → модули → экраны → App
   const SCRIPTS = [
@@ -27,17 +27,12 @@
   css.href = 'css/app.css?v=' + VERSION;
   document.head.appendChild(css);
 
-  // Раньше сайт был PWA: снимаем старый service worker, иначе он отдаёт кеш прошлой версии
+  // PWA: service worker берёт файлы из сети, а без интернета — из кеша (sw.js).
+  // Он же убирает кеш старого service worker, из-за которого приложение не обновлялось.
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function (regs) {
-      regs.forEach(function (r) {
-        const w = r.active || r.waiting || r.installing;
-        if (w && new URL('sw.js', location.href).href === w.scriptURL) r.unregister();
-      });
-    }).catch(function () {});
-    if (window.caches) caches.keys().then(function (keys) {
-      keys.filter(function (k) { return /^boat16-/.test(k); }).forEach(function (k) { caches.delete(k); });
-    }).catch(function () {});
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function (e) { console.warn('SW:', e); });
+    });
   }
 
   load(0);
